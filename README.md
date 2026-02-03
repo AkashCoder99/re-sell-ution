@@ -5,9 +5,9 @@ ReSellution is a full-stack local marketplace platform that enables users to lis
 
 ## Team Members & Roles
 - **Front-End Engineers**
-  - Krishna Kolipakulach
+  - Krishna Chaitanya Kolipakula
   - Tanmayee Maram
 
 - **Back-End Engineers**
   - Akash Singh
-  - Geetha Papineni
+  - Geetha Madhuri Papineni
