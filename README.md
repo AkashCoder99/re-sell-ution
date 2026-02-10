@@ -5,7 +5,7 @@ GOAL : Build a working MVP locally with basic navigation, listings browse/detail
 ### User Stories (Sprint 1)
 
 US-01 Authentication : 
-As a user, I want to register and login so I can create and manage listings.
+As a user, I want to register and login so I can create and manage listings. MArked as completed✅
 
 US-02 Browse Listings : 
 As a user, I want to browse listings so I can discover items available in my community.
