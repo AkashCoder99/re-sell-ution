@@ -8,7 +8,7 @@ US-01 Authentication :
 As a user, I want to register and login so I can create and manage listings. MArked as completed✅
 
 US-02 Browse Listings : 
-As a user, I want to browse listings so I can discover items available in my community.
+As a user, I want to browse listings so I can discover items available in my community. MArked as completed✅
 
 US-03 Listing Details : 
 As a user, I want to view a listing’s details so I can decide whether to contact the seller.
