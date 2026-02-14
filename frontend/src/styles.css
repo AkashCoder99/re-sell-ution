@@ -1,0 +1,119 @@
+:root {
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  color: #111827;
+  background: radial-gradient(circle at 10% 20%, #dbeafe 0%, #f8fafc 50%, #e0f2fe 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.9rem;
+}
+
+.subtitle {
+  margin: 0.35rem 0 1rem;
+  color: #4b5563;
+}
+
+.message {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.75rem;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #1e293b;
+  font-size: 0.92rem;
+}
+
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.mode-toggle button {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.6rem;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.mode-toggle button.active {
+  border-color: #0284c7;
+  background: #e0f2fe;
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.95rem;
+}
+
+label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.68rem 0.72rem;
+  font-size: 0.95rem;
+}
+
+input:focus {
+  outline: 2px solid #7dd3fc;
+  border-color: #0284c7;
+}
+
+.auth-form button,
+.profile button {
+  border: none;
+  border-radius: 10px;
+  padding: 0.72rem;
+  background: #0284c7;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-form button:disabled {
+  opacity: 0.75;
+  cursor: wait;
+}
+
+.profile h2 {
+  margin: 0 0 0.3rem;
+}
+
+.profile p {
+  margin: 0 0 1rem;
+  color: #475569;
+}
