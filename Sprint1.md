@@ -1,7 +1,7 @@
 # ReSellution — EPIC 01 & EPIC 02 (MVP Foundation)
 
 
-ReSellution is a full-stack local marketplace platform (OLX-style) where users can list, discover, and buy/sell pre-owned items in their city.
+ReSellution is a full-stack local marketplace platform where users can list, discover, and buy/sell pre-owned items in their city.
 
 
 This README covers **only**:
