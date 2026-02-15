@@ -1,19 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
-import { getMe, login, register } from './api/auth'
-import type { LoginRequest, PublicUser, RegisterRequest } from './api/auth'
+import { getMe, login, register, updateProfile } from './api/auth'
+import type { LoginRequest, RegisterRequest } from './api/auth'
+import type { PublicUser, UpdateProfileRequest } from './types/user'
+import CitySelector from './components/CitySelector'
+import ProfileEdit from './components/ProfileEdit'
+import ForgotPassword from './components/ForgotPassword'
 
 const defaultLoginForm: LoginRequest = { email: '', password: '' }
 const defaultRegisterForm: RegisterRequest = { full_name: '', email: '', password: '' }
 
+type ViewMode = 'login' | 'register' | 'forgot-password' | 'city-select' | 'profile' | 'profile-edit'
+
 export default function App() {
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [viewMode, setViewMode] = useState<ViewMode>('login')
   const [loginForm, setLoginForm] = useState<LoginRequest>(defaultLoginForm)
   const [registerForm, setRegisterForm] = useState<RegisterRequest>(defaultRegisterForm)
   const [token, setToken] = useState<string>(() => localStorage.getItem('auth_token') || '')
   const [user, setUser] = useState<PublicUser | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
   const [message, setMessage] = useState<string>('')
+  const [showCitySelector, setShowCitySelector] = useState<boolean>(false)
+  const [showLoginPassword, setShowLoginPassword] = useState<boolean>(false)
+  const [showRegisterPassword, setShowRegisterPassword] = useState<boolean>(false)
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user])
 
   useEffect(() => {
@@ -25,6 +34,10 @@ export default function App() {
     getMe(token)
       .then((data) => {
         setUser(data.user)
+        // If user doesn't have a city set, prompt them to select one
+        if (!data.user.city) {
+          setShowCitySelector(true)
+        }
       })
       .catch(() => {
         localStorage.removeItem('auth_token')
@@ -45,6 +58,13 @@ export default function App() {
       setUser(data.user)
       setMessage('Login successful.')
       setLoginForm(defaultLoginForm)
+      
+      // Check if user needs to select city
+      if (!data.user.city) {
+        setShowCitySelector(true)
+      } else {
+        setViewMode('profile')
+      }
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : 'Login failed')
     } finally {
@@ -64,6 +84,9 @@ export default function App() {
       setUser(data.user)
       setMessage('Account created and logged in.')
       setRegisterForm(defaultRegisterForm)
+      
+      // Prompt new user to select city
+      setShowCitySelector(true)
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : 'Registration failed')
     } finally {
@@ -76,6 +99,27 @@ export default function App() {
     setToken('')
     setUser(null)
     setMessage('Logged out.')
+    setViewMode('login')
+    setShowCitySelector(false)
+  }
+
+  async function handleCitySelected(city: string) {
+    if (!token) return
+
+    const data = await updateProfile(token, { city })
+    setUser(data.user)
+    setShowCitySelector(false)
+    setViewMode('profile')
+    setMessage(`City updated to ${city}`)
+  }
+
+  async function handleProfileUpdate(updates: UpdateProfileRequest) {
+    if (!token) return
+
+    const data = await updateProfile(token, updates)
+    setUser(data.user)
+    setViewMode('profile')
+    setMessage('Profile updated successfully')
   }
 
   function onLoginEmailChange(event: ChangeEvent<HTMLInputElement>) {
@@ -101,39 +145,74 @@ export default function App() {
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <h1>ReSellution</h1>
-        <p className="subtitle">Local marketplace login</p>
+        <h1>🛍️ ReSellution</h1>
+        <p className="subtitle">Your local marketplace platform</p>
 
         {message && <p className="message">{message}</p>}
 
-        {isAuthenticated ? (
+        {/* City Selector - shown after signup/login if no city set */}
+        {isAuthenticated && showCitySelector ? (
+          <CitySelector
+            currentCity={user?.city}
+            onCitySelected={handleCitySelected}
+            onSkip={() => {
+              setShowCitySelector(false)
+              setViewMode('profile')
+            }}
+          />
+        ) : isAuthenticated && viewMode === 'profile-edit' && user ? (
+          /* Profile Edit Mode */
+          <ProfileEdit
+            user={user}
+            onUpdate={handleProfileUpdate}
+            onCancel={() => setViewMode('profile')}
+          />
+        ) : isAuthenticated && user ? (
+          /* Profile View */
           <div className="profile">
-            <h2>Welcome, {user?.full_name}</h2>
-            <p>{user?.email}</p>
-            <button type="button" onClick={handleLogout}>
-              Logout
-            </button>
+            <h2>👋 Welcome, {user.full_name}</h2>
+            <div className="profile-details">
+              <p><strong>📧 Email:</strong> {user.email}</p>
+              {user.city && <p><strong>📍 City:</strong> {user.city}</p>}
+              {user.bio && <p><strong>💬 Bio:</strong> {user.bio}</p>}
+              {user.photo_url && <p><strong>🖼️ Photo:</strong> <a href={user.photo_url} target="_blank" rel="noopener noreferrer">View</a></p>}
+            </div>
+            <div className="button-group">
+              <button type="button" onClick={() => setViewMode('profile-edit')}>
+                Edit Profile
+              </button>
+              <button type="button" onClick={() => setShowCitySelector(true)}>
+                Change City
+              </button>
+              <button type="button" className="secondary" onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
           </div>
+        ) : viewMode === 'forgot-password' ? (
+          /* Forgot Password */
+          <ForgotPassword onBack={() => setViewMode('login')} />
         ) : (
+          /* Login/Register */
           <>
             <div className="mode-toggle">
               <button
                 type="button"
-                className={mode === 'login' ? 'active' : ''}
-                onClick={() => setMode('login')}
+                className={viewMode === 'login' ? 'active' : ''}
+                onClick={() => setViewMode('login')}
               >
                 Login
               </button>
               <button
                 type="button"
-                className={mode === 'register' ? 'active' : ''}
-                onClick={() => setMode('register')}
+                className={viewMode === 'register' ? 'active' : ''}
+                onClick={() => setViewMode('register')}
               >
                 Register
               </button>
             </div>
 
-            {mode === 'login' ? (
+            {viewMode === 'login' ? (
               <form onSubmit={handleLogin} className="auth-form">
                 <label>
                   Email
@@ -142,11 +221,34 @@ export default function App() {
 
                 <label>
                   Password
-                  <input type="password" value={loginForm.password} onChange={onLoginPasswordChange} required />
+                  <div className="password-input-wrapper">
+                    <input 
+                      type={showLoginPassword ? "text" : "password"} 
+                      value={loginForm.password} 
+                      onChange={onLoginPasswordChange} 
+                      required 
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowLoginPassword(!showLoginPassword)}
+                      aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                    >
+                      {showLoginPassword ? '👁️' : '👁️‍🗨️'}
+                    </button>
+                  </div>
                 </label>
 
                 <button type="submit" disabled={loading}>
                   {loading ? 'Please wait...' : 'Login'}
+                </button>
+
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => setViewMode('forgot-password')}
+                >
+                  Forgot password?
                 </button>
               </form>
             ) : (
@@ -163,13 +265,23 @@ export default function App() {
 
                 <label>
                   Password (min 8 chars)
-                  <input
-                    type="password"
-                    value={registerForm.password}
-                    onChange={onRegisterPasswordChange}
-                    required
-                    minLength={8}
-                  />
+                  <div className="password-input-wrapper">
+                    <input
+                      type={showRegisterPassword ? "text" : "password"}
+                      value={registerForm.password}
+                      onChange={onRegisterPasswordChange}
+                      required
+                      minLength={8}
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                      aria-label={showRegisterPassword ? "Hide password" : "Show password"}
+                    >
+                      {showRegisterPassword ? '👁️' : '👁️‍🗨️'}
+                    </button>
+                  </div>
                 </label>
 
                 <button type="submit" disabled={loading}>
