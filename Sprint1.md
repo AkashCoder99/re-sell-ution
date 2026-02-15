@@ -188,3 +188,93 @@ Even though EPIC-01 focuses on Auth/Profile, the DB foundation should scaffold t
 - Password reset abuse (rate limit + cooldown).
 - City selection conflicts (manual vs GPS suggestion).
 - Profile updates should block unsafe fields (role, auth flags, etc.).
+
+---
+
+## Sprint 1 Completion Summary
+
+### User Stories Addressed
+
+#### Frontend Team (Krishna Chaitanya Kolipakula, Tanmayee Maram)
+**All frontend user stories completed:**
+- ✅ **F1: Sign up** - Complete registration form with validation
+- ✅ **F2: Login** - Login functionality with error handling
+- ✅ **F3: Forgot/Reset password** - Password reset flow UI
+- ✅ **F4: Logout** - Logout with session cleanup
+- ✅ **F5: Choose City / Location** - City selector with popular cities dropdown and manual entry
+- ✅ **F6: Basic Profile** - Profile view and edit with city, bio, and photo URL
+
+**Additional Enhancements:**
+- Password visibility toggle on login and register forms
+- Mock API for frontend-only demos
+- Modern UI with glassmorphism, animations, and gradient backgrounds
+- Responsive design with proper accessibility (ARIA labels)
+
+#### Backend Team (Akash Singh, Geetha Madhuri Papineni)
+**Backend user stories completed:**
+- ✅ **B1: Auth service** - Signup, login, logout endpoints implemented
+- ✅ **B3: Core schema + migrations** - PostgreSQL schema with migrations
+- ✅ **B4: User profile APIs** - GET and PATCH /users/me endpoints
+
+### Issues Successfully Completed
+
+#### Frontend Issues:
+1. ✅ User registration form with validation
+2. ✅ User login form with error handling
+3. ✅ Forgot password UI flow
+4. ✅ City selection component (dropdown + manual)
+5. ✅ Profile display with user details
+6. ✅ Profile edit form (name, city, bio, photo)
+7. ✅ Password visibility toggle feature
+8. ✅ Mock API for independent testing
+9. ✅ Modern UI with animations and gradients
+10. ✅ Responsive design and accessibility
+
+#### Backend Issues:
+1. ✅ POST /api/v1/auth/register endpoint
+2. ✅ POST /api/v1/auth/login endpoint  
+3. ✅ GET /api/v1/auth/me endpoint
+4. ✅ Database migrations for users table
+5. ✅ Password hashing with bcrypt
+6. ✅ JWT token generation and validation
+7. ✅ CORS configuration for frontend
+
+### Issues Not Completed & Why
+
+**Frontend:**
+- ❌ **Password reset backend integration** - Backend endpoint not yet implemented (B2)
+- The forgot password UI is complete and shows success message using mock API
+- Will be fully functional once backend implements the reset endpoints
+
+**Backend:**
+- ❌ **B2: Account recovery (password reset/OTP)** - Deprioritized for Sprint 1
+- ❌ **B5: Constraints + indexes** - Basic schema complete, advanced indexes deferred
+- ❌ **B6: Observability** - Basic logging in place, metrics deferred
+- ❌ **B14: Soft delete + audit fields** - Not critical for MVP auth flow
+
+### Demo Access
+
+**Frontend Demo:**
+- URL: `http://localhost:5173` (or `http://127.0.0.1:5173`)
+- Mode: Mock API enabled (no backend required)
+- Test credentials: Any email/password (data stored in memory)
+
+**Backend Demo:**
+- URL: `http://localhost:8080`
+- Database: PostgreSQL with migrations applied
+- Test with: Postman or cURL
+
+### Technologies Used
+
+**Frontend:**
+- React 18 with TypeScript
+- Vite for build tooling
+- CSS3 with animations
+- Mock API for standalone demos
+
+**Backend:**
+- Go 1.26
+- PostgreSQL 16
+- JWT for authentication
+- bcrypt for password hashing
+

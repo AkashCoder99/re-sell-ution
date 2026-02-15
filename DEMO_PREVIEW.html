@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReSellution - Password Toggle Demo</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0d9488 100%);
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 2rem;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.15) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 2.5rem;
+            max-width: 450px;
+            width: 100%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 1;
+        }
+        h1 {
+            margin: 0 0 0.5rem;
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #0891b2 0%, #3b82f6 50%, #6366f1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            text-align: center;
+            letter-spacing: -0.02em;
+        }
+        .subtitle {
+            margin: 0 0 2rem;
+            color: #64748b;
+            font-size: 1rem;
+            text-align: center;
+        }
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.75rem;
+            padding: 0.375rem;
+            background: #f1f5f9;
+            border-radius: 14px;
+        }
+        .tabs button {
+            flex: 1;
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem;
+            background: transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+        .tabs button.active {
+            background: white;
+            color: #0891b2;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .form { display: none; }
+        .form.active { display: block; }
+        label {
+            display: block;
+            margin-bottom: 1.25rem;
+            font-size: 0.875rem;
+            color: #334155;
+            font-weight: 600;
+        }
+        input {
+            width: 100%;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 0.875rem 1rem;
+            font-size: 1rem;
+            margin-top: 0.5rem;
+            transition: all 0.2s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #0891b2;
+            box-shadow: 0 0 0 4px rgba(8, 145, 178, 0.1);
+        }
+        .password-wrapper {
+            position: relative;
+            margin-top: 0.5rem;
+        }
+        .password-wrapper input {
+            margin-top: 0;
+            padding-right: 3rem;
+        }
+        .toggle-btn {
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1.25rem;
+            padding: 0.25rem;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        .toggle-btn:hover { opacity: 1; }
+        .toggle-btn:focus {
+            outline: 2px solid #0891b2;
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+        .submit-btn {
+            width: 100%;
+            border: none;
+            border-radius: 12px;
+            padding: 0.875rem 1.5rem;
+            background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            box-shadow: 0 4px 12px rgba(8, 145, 178, 0.3);
+            transition: all 0.2s;
+        }
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(8, 145, 178, 0.4);
+        }
+        .info {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            color: #1e3a8a;
+        }
+        .feature {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🛍️ ReSellution</h1>
+        <p class="subtitle">Your local marketplace platform</p>
+
+        <div class="tabs">
+            <button class="active" onclick="showTab('login')">Login</button>
+            <button onclick="showTab('register')">Register</button>
+        </div>
+
+        <div id="login-form" class="form active">
+            <label>
+                Email
+                <input type="email" placeholder="user@example.com" value="demo@example.com">
+            </label>
+
+            <label>
+                Password
+                <div class="password-wrapper">
+                    <input type="password" id="login-password" placeholder="Enter password" value="password123">
+                    <button class="toggle-btn" onclick="togglePassword('login-password', this)" aria-label="Show password">
+                        👁️🗨️
+                    </button>
+                </div>
+            </label>
+
+            <button class="submit-btn" onclick="alert('✅ Login functionality works!\n\nIn the real app, this connects to the backend API.')">
+                Login
+            </button>
+        </div>
+
+        <div id="register-form" class="form">
+            <label>
+                Full name
+                <input type="text" placeholder="John Doe" value="John Doe">
+            </label>
+
+            <label>
+                Email
+                <input type="email" placeholder="john@example.com" value="john@example.com">
+            </label>
+
+            <label>
+                Password (min 8 chars)
+                <div class="password-wrapper">
+                    <input type="password" id="register-password" placeholder="Enter password" value="mypassword123" minlength="8">
+                    <button class="toggle-btn" onclick="togglePassword('register-password', this)" aria-label="Show password">
+                        👁️🗨️
+                    </button>
+                </div>
+            </label>
+
+            <button class="submit-btn" onclick="alert('✅ Registration functionality works!\n\nIn the real app, this creates an account and logs you in.')">
+                Create account
+            </button>
+        </div>
+
+        <div class="info">
+            <strong>ℹ️ Demo Mode</strong><br>
+            This is a standalone preview. The real app uses React + TypeScript + Vite.
+        </div>
+
+        <div class="feature">
+            <strong>✨ NEW: Password Toggle Feature</strong><br>
+            Click the eye icon (👁️) to show/hide your password!
+        </div>
+    </div>
+
+    <script>
+        function showTab(tab) {
+            document.querySelectorAll('.tabs button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            document.querySelectorAll('.form').forEach(form => {
+                form.classList.remove('active');
+            });
+            document.getElementById(tab + '-form').classList.add('active');
+        }
+
+        function togglePassword(inputId, button) {
+            const input = document.getElementById(inputId);
+            const isPassword = input.type === 'password';
+            
+            input.type = isPassword ? 'text' : 'password';
+            button.textContent = isPassword ? '👁️' : '👁️🗨️';
+            button.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && document.activeElement.classList.contains('toggle-btn')) {
+                document.activeElement.click();
+            }
+        });
+    </script>
+</body>
+</html>
