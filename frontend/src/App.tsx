@@ -6,11 +6,12 @@ import type { PublicUser, UpdateProfileRequest } from './types/user'
 import CitySelector from './components/CitySelector'
 import ProfileEdit from './components/ProfileEdit'
 import ForgotPassword from './components/ForgotPassword'
+import ResetPassword from './components/ResetPassword'
 
 const defaultLoginForm: LoginRequest = { email: '', password: '' }
 const defaultRegisterForm: RegisterRequest = { full_name: '', email: '', password: '' }
 
-type ViewMode = 'login' | 'register' | 'forgot-password' | 'city-select' | 'profile' | 'profile-edit'
+type ViewMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'city-select' | 'profile' | 'profile-edit'
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('login')
@@ -207,7 +208,10 @@ export default function App() {
           </div>
         ) : viewMode === 'forgot-password' ? (
           /* Forgot Password */
-          <ForgotPassword onBack={() => setViewMode('login')} />
+          <ForgotPassword onBack={() => setViewMode('login')} onGoToReset={() => setViewMode('reset-password')} />
+        ) : viewMode === 'reset-password' ? (
+          /* Reset Password */
+          <ResetPassword onBack={() => setViewMode('login')} />
         ) : (
           /* Login/Register */
           <>

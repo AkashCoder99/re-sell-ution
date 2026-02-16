@@ -16,6 +16,11 @@ export interface LoginRequest {
   password: string
 }
 
+export interface ConfirmPasswordResetRequest {
+  token: string
+  new_password: string
+}
+
 interface MeResponse {
   user: PublicUser
 }
@@ -26,6 +31,7 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 // Mock storage for demo (only used when USE_MOCK is true)
 const mockUsers: Record<string, PublicUser & { password: string }> = {}
 let mockTokenStore = ''
+const mockPasswordResetTokens: Record<string, { email: string; expiresAt: number }> = {}
 
 function mockDelay(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 400))
@@ -166,7 +172,38 @@ async function mockAPI<TResponse>(path: string, options: RequestInit): Promise<T
 
   // Password Reset Request
   if (path === '/api/v1/auth/password/reset/request' && method === 'POST') {
-    return { message: 'Password reset email sent (mock)' } as TResponse
+    const { email } = body as { email?: string }
+    if (!email || !mockUsers[email]) {
+      return { message: 'If an account exists, a password reset link has been sent' } as TResponse
+    }
+
+    const token = 'mock_reset_' + Date.now()
+    mockPasswordResetTokens[token] = {
+      email,
+      expiresAt: Date.now() + 15 * 60 * 1000
+    }
+    return { message: `Password reset token (mock): ${token}` } as TResponse
+  }
+
+  // Password Reset Confirm
+  if (path === '/api/v1/auth/password/reset/confirm' && method === 'POST') {
+    const { token, new_password } = body as ConfirmPasswordResetRequest
+    const resetEntry = mockPasswordResetTokens[token]
+    if (!resetEntry || Date.now() > resetEntry.expiresAt) {
+      throw new Error('Invalid or expired reset token')
+    }
+    if (!new_password || new_password.length < 8) {
+      throw new Error('new_password must be at least 8 characters')
+    }
+
+    const user = mockUsers[resetEntry.email]
+    if (!user) {
+      throw new Error('Invalid or expired reset token')
+    }
+
+    user.password = new_password
+    delete mockPasswordResetTokens[token]
+    return { message: 'password reset successful' } as TResponse
   }
 
   throw new Error('Mock API endpoint not implemented: ' + method + ' ' + path)
@@ -217,5 +254,12 @@ export function requestPasswordReset(email: string): Promise<{ message: string }
   return request<{ message: string }>('/api/v1/auth/password/reset/request', {
     method: 'POST',
     body: JSON.stringify({ email })
+  })
+}
+
+export function confirmPasswordReset(payload: ConfirmPasswordResetRequest): Promise<{ message: string }> {
+  return request<{ message: string }>('/api/v1/auth/password/reset/confirm', {
+    method: 'POST',
+    body: JSON.stringify(payload)
   })
 }
