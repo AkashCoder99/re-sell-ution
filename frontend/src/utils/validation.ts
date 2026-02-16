@@ -52,3 +52,28 @@ export function validateCity(city: string): string | null {
   }
   return null
 }
+
+// Listing validation (EPIC-03)
+export function validateListingTitle(title: string): string | null {
+  const trimmed = title.trim()
+  if (!trimmed) return 'Title is required'
+  if (trimmed.length < 3) return 'Title must be at least 3 characters'
+  if (trimmed.length > 200) return 'Title must be less than 200 characters'
+  return null
+}
+
+export function validateListingDescription(description: string): string | null {
+  const trimmed = description.trim()
+  if (!trimmed) return 'Description is required'
+  if (trimmed.length < 10) return 'Description must be at least 10 characters'
+  if (trimmed.length > 5000) return 'Description must be less than 5000 characters'
+  return null
+}
+
+export function validateListingPrice(price: unknown): string | null {
+  const n = Number(price)
+  if (Number.isNaN(n)) return 'Please enter a valid price'
+  if (n < 0) return 'Price cannot be negative'
+  if (n > 999_999_999.99) return 'Price is too high'
+  return null
+}
