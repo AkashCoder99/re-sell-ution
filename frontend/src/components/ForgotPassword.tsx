@@ -1,12 +1,14 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { useState } from 'react'
+import { requestPasswordReset } from '../api/auth'
 import { isValidEmail } from '../utils/validation'
 
 interface ForgotPasswordProps {
   onBack: () => void
+  onGoToReset: () => void
 }
 
-export default function ForgotPassword({ onBack }: ForgotPasswordProps) {
+export default function ForgotPassword({ onBack, onGoToReset }: ForgotPasswordProps) {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -31,12 +33,8 @@ export default function ForgotPassword({ onBack }: ForgotPasswordProps) {
     }
 
     try {
-      // TODO: Call API endpoint for password reset
-      // await requestPasswordReset(email)
-      
-      // Simulating API call for now
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setMessage('Password reset link sent to your email. Please check your inbox.')
+      const response = await requestPasswordReset(email)
+      setMessage(response.message || 'Password reset link sent to your email. Please check your inbox.')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to send reset email')
     } finally {
@@ -67,6 +65,9 @@ export default function ForgotPassword({ onBack }: ForgotPasswordProps) {
         <div className="button-group">
           <button type="submit" disabled={loading}>
             {loading ? 'Sending...' : 'Send Reset Link'}
+          </button>
+          <button type="button" onClick={onGoToReset}>
+            Have token? Reset now
           </button>
           <button type="button" className="secondary" onClick={onBack}>
             Back to Login
