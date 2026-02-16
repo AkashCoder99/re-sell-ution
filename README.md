@@ -1,14 +1,22 @@
 # ReSellution
 
-## Project Description
-ReSellution is a full-stack local marketplace platform (similar to OLX) where users can list, discover, and buy/sell pre-owned items in their city.
+A modern local marketplace platform where users can buy and sell pre-owned items in their city.
 
-This first implementation slice includes:
-- React + TypeScript frontend login/register UI
-- Golang backend auth APIs
-- PostgreSQL schema designed for a full marketplace (users, listings, categories, chats, favorites, sessions)
+## 🚀 Project Description
+ReSellution is a full-stack marketplace application similar to OLX, built with modern web technologies. The platform enables users to:
+- Create accounts and manage profiles
+- Select their city for localized listings
+- List, discover, and purchase pre-owned items
+- Chat with buyers/sellers (planned)
+- Save favorite listings (planned)
 
-## Roles & Team Members
+## 📦 Tech Stack
+- **Frontend**: React 18 + TypeScript + Vite
+- **Backend**: Go 1.26 + PostgreSQL 16
+- **Authentication**: JWT tokens + bcrypt password hashing
+- **Styling**: Modern CSS with glassmorphism and animations
+
+## 👥 Team Members
 - Front-End Engineers
   - Krishna Chaitanya Kolipakula
   - Tanmayee Maram
@@ -86,7 +94,31 @@ npm run dev
 
 Frontend URL: `http://localhost:5173`
 
-## Auth APIs Implemented
+#### Demo Mode (Frontend Only)
+To run the frontend without backend:
+```bash
+# Create .env.local
+echo "VITE_USE_MOCK=true" > .env.local
+npm run dev
+```
+This enables a mock API for testing frontend features independently.
+
+## ✨ Features Implemented (Sprint 1)
+
+### Frontend
+- ✅ **F1**: User Registration with validation
+- ✅ **F2**: User Login with password visibility toggle
+- ✅ **F3**: Forgot Password UI (backend pending)
+- ✅ **F4**: User Logout
+- ✅ **F5**: City Selection with search filter
+- ✅ **F6**: Profile View and Edit with character counter
+
+### Backend
+- ✅ **B1**: Auth Service (signup/login/logout)
+- ✅ **B3**: Database Schema Design
+- ✅ **B4**: User Profile APIs (GET/PUT /users/me)
+
+## 📡 Auth APIs Implemented
 
 ### `POST /api/v1/auth/register`
 Body:
