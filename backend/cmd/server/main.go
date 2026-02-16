@@ -28,11 +28,26 @@ func main() {
 
 	userStore := models.UserStore{DB: database}
 	tokenManager := utils.NewTokenManager(cfg.TokenSecret)
+	var emailSender utils.EmailSender
+	if strings.TrimSpace(cfg.SMTPHost) != "" {
+		emailSender = utils.SMTPEmailSender{
+			Host:      cfg.SMTPHost,
+			Port:      cfg.SMTPPort,
+			Username:  cfg.SMTPUsername,
+			Password:  cfg.SMTPPassword,
+			FromEmail: cfg.SMTPFromEmail,
+			FromName:  cfg.SMTPFromName,
+		}
+	}
+
 	authHandler := handlers.AuthHandler{
 		Users:                      userStore,
 		TokenManager:               tokenManager,
+		EmailSender:                emailSender,
 		TokenExpiryHours:           cfg.TokenExpiryHours,
 		PasswordResetExpiryMinutes: cfg.PasswordResetExpiryMinutes,
+		PasswordResetOTPDigits:     cfg.PasswordResetOTPDigits,
+		PasswordResetMaxAttempts:   cfg.PasswordResetMaxAttempts,
 	}
 
 	mux := http.NewServeMux()

@@ -14,6 +14,14 @@ type Config struct {
 	TokenSecret                string
 	TokenExpiryHours           int
 	PasswordResetExpiryMinutes int
+	PasswordResetOTPDigits     int
+	PasswordResetMaxAttempts   int
+	SMTPHost                   string
+	SMTPPort                   string
+	SMTPUsername               string
+	SMTPPassword               string
+	SMTPFromEmail              string
+	SMTPFromName               string
 	CorsOrigin                 string
 }
 
@@ -36,6 +44,22 @@ func Load() (Config, error) {
 		}
 		passwordResetExpiryMinutes = parsed
 	}
+	passwordResetOTPDigits := 6
+	if raw := os.Getenv("PASSWORD_RESET_OTP_DIGITS"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return Config{}, err
+		}
+		passwordResetOTPDigits = parsed
+	}
+	passwordResetMaxAttempts := 5
+	if raw := os.Getenv("PASSWORD_RESET_MAX_ATTEMPTS"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return Config{}, err
+		}
+		passwordResetMaxAttempts = parsed
+	}
 
 	cfg := Config{
 		Port:                       envOrDefault("PORT", "8080"),
@@ -43,6 +67,14 @@ func Load() (Config, error) {
 		TokenSecret:                os.Getenv("TOKEN_SECRET"),
 		TokenExpiryHours:           expiryHours,
 		PasswordResetExpiryMinutes: passwordResetExpiryMinutes,
+		PasswordResetOTPDigits:     passwordResetOTPDigits,
+		PasswordResetMaxAttempts:   passwordResetMaxAttempts,
+		SMTPHost:                   os.Getenv("SMTP_HOST"),
+		SMTPPort:                   envOrDefault("SMTP_PORT", "587"),
+		SMTPUsername:               os.Getenv("SMTP_USERNAME"),
+		SMTPPassword:               os.Getenv("SMTP_PASSWORD"),
+		SMTPFromEmail:              envOrDefault("SMTP_FROM_EMAIL", "no-reply@resellution.local"),
+		SMTPFromName:               envOrDefault("SMTP_FROM_NAME", "ReSellution"),
 		CorsOrigin:                 envOrDefault("CORS_ORIGIN", "http://localhost:5173,http://127.0.0.1:5173"),
 	}
 

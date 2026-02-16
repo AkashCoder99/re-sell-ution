@@ -1,21 +1,29 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { useState } from 'react'
 import { confirmPasswordReset } from '../api/auth'
+import { isValidEmail } from '../utils/validation'
 
 interface ResetPasswordProps {
   onBack: () => void
 }
 
 export default function ResetPassword({ onBack }: ResetPasswordProps) {
-  const [token, setToken] = useState('')
+  const [email, setEmail] = useState('')
+  const [otp, setOtp] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  function onTokenChange(event: ChangeEvent<HTMLInputElement>) {
-    setToken(event.target.value)
+  function onEmailChange(event: ChangeEvent<HTMLInputElement>) {
+    setEmail(event.target.value)
+    setError('')
+    setMessage('')
+  }
+
+  function onOtpChange(event: ChangeEvent<HTMLInputElement>) {
+    setOtp(event.target.value)
     setError('')
     setMessage('')
   }
@@ -38,8 +46,14 @@ export default function ResetPassword({ onBack }: ResetPasswordProps) {
     setError('')
     setMessage('')
 
-    if (!token.trim()) {
-      setError('Reset token is required')
+    if (!isValidEmail(email)) {
+      setError('Valid email is required')
+      setLoading(false)
+      return
+    }
+
+    if (!otp.trim()) {
+      setError('OTP is required')
       setLoading(false)
       return
     }
@@ -58,11 +72,13 @@ export default function ResetPassword({ onBack }: ResetPasswordProps) {
 
     try {
       const response = await confirmPasswordReset({
-        token: token.trim(),
+        email: email.trim(),
+        otp: otp.trim(),
         new_password: newPassword
       })
       setMessage(response.message || 'Password reset successful. You can now log in.')
-      setToken('')
+      setEmail('')
+      setOtp('')
       setNewPassword('')
       setConfirmPassword('')
     } catch (err: unknown) {
@@ -75,15 +91,20 @@ export default function ResetPassword({ onBack }: ResetPasswordProps) {
   return (
     <div className="forgot-password">
       <h2>🔐 Set New Password</h2>
-      <p className="subtitle">Enter your reset token and choose a new password</p>
+      <p className="subtitle">Enter your email, OTP, and choose a new password</p>
 
       {error && <p className="error-message">{error}</p>}
       {message && <p className="success-message">{message}</p>}
 
       <form onSubmit={handleSubmit} className="auth-form">
         <label>
-          Reset token
-          <input type="text" value={token} onChange={onTokenChange} placeholder="Paste token here" required />
+          Email
+          <input type="email" value={email} onChange={onEmailChange} placeholder="your.email@example.com" required />
+        </label>
+
+        <label>
+          OTP
+          <input type="text" value={otp} onChange={onOtpChange} placeholder="Enter 6-digit OTP" required />
         </label>
 
         <label>
