@@ -55,6 +55,16 @@ type publicUser struct {
 	ID       string `json:"id"`
 	Email    string `json:"email"`
 	FullName string `json:"full_name"`
+	City     string `json:"city,omitempty"`
+	Bio      string `json:"bio,omitempty"`
+	PhotoURL string `json:"photo_url,omitempty"`
+}
+
+type updateProfileRequest struct {
+	FullName *string `json:"full_name"`
+	City     *string `json:"city"`
+	Bio      *string `json:"bio"`
+	PhotoURL *string `json:"photo_url"`
 }
 
 func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -171,6 +181,40 @@ func (h AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to fetch user"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]publicUser{"user": toPublicUser(user)})
+}
+
+func (h AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	if r.Method != http.MethodPatch && r.Method != http.MethodPut {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+
+	var req updateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+
+	up := models.ProfileUpdate{
+		FullName:        req.FullName,
+		City:            req.City,
+		Bio:             req.Bio,
+		ProfileImageURL: req.PhotoURL,
+	}
+
+	user, err := h.Users.UpdateProfile(r.Context(), userID, up)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update profile"})
 		return
 	}
 
@@ -316,6 +360,9 @@ func toPublicUser(user models.User) publicUser {
 		ID:       user.ID,
 		Email:    user.Email,
 		FullName: user.FullName,
+		City:     user.City,
+		Bio:      user.Bio,
+		PhotoURL: user.ProfileImageURL,
 	}
 }
 

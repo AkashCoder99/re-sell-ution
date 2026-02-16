@@ -47,6 +47,8 @@ func main() {
 	mux.HandleFunc("POST /api/v1/auth/password/reset/request", authHandler.RequestPasswordReset)
 	mux.HandleFunc("POST /api/v1/auth/password/reset/confirm", authHandler.ConfirmPasswordReset)
 	mux.HandleFunc("GET /api/v1/auth/me", middleware.Auth(tokenManager, authHandler.Me))
+	mux.HandleFunc("PATCH /api/v1/users/me", middleware.Auth(tokenManager, authHandler.UpdateProfile))
+	mux.HandleFunc("PUT /api/v1/users/me", middleware.Auth(tokenManager, authHandler.UpdateProfile))
 	mux.HandleFunc("POST /api/v1/auth/logout", middleware.Auth(tokenManager, authHandler.Logout))
 
 	handler := withCORS(cfg.CorsOrigin, mux)
