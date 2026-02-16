@@ -9,11 +9,12 @@ import (
 )
 
 type Config struct {
-	Port             string
-	DatabaseURL      string
-	TokenSecret      string
-	TokenExpiryHours int
-	CorsOrigin       string
+	Port                       string
+	DatabaseURL                string
+	TokenSecret                string
+	TokenExpiryHours           int
+	PasswordResetExpiryMinutes int
+	CorsOrigin                 string
 }
 
 func Load() (Config, error) {
@@ -27,13 +28,22 @@ func Load() (Config, error) {
 		}
 		expiryHours = parsed
 	}
+	passwordResetExpiryMinutes := 15
+	if raw := os.Getenv("PASSWORD_RESET_EXPIRY_MINUTES"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return Config{}, err
+		}
+		passwordResetExpiryMinutes = parsed
+	}
 
 	cfg := Config{
-		Port:             envOrDefault("PORT", "8080"),
-		DatabaseURL:      os.Getenv("DATABASE_URL"),
-		TokenSecret:      os.Getenv("TOKEN_SECRET"),
-		TokenExpiryHours: expiryHours,
-		CorsOrigin:       envOrDefault("CORS_ORIGIN", "http://localhost:5173,http://127.0.0.1:5173"),
+		Port:                       envOrDefault("PORT", "8080"),
+		DatabaseURL:                os.Getenv("DATABASE_URL"),
+		TokenSecret:                os.Getenv("TOKEN_SECRET"),
+		TokenExpiryHours:           expiryHours,
+		PasswordResetExpiryMinutes: passwordResetExpiryMinutes,
+		CorsOrigin:                 envOrDefault("CORS_ORIGIN", "http://localhost:5173,http://127.0.0.1:5173"),
 	}
 
 	if cfg.DatabaseURL == "" {

@@ -9,6 +9,7 @@ import (
 )
 
 var ErrUserNotFound = errors.New("user not found")
+var ErrPasswordResetTokenInvalid = errors.New("password reset token is invalid or expired")
 
 type User struct {
 	ID           string    `json:"id"`
@@ -21,6 +22,13 @@ type User struct {
 
 type UserStore struct {
 	DB *sql.DB
+}
+
+type PasswordResetToken struct {
+	ID        string
+	UserID    string
+	TokenHash string
+	ExpiresAt time.Time
 }
 
 func (s UserStore) Create(ctx context.Context, user User) (User, error) {
@@ -90,4 +98,89 @@ func (s UserStore) FindByID(ctx context.Context, id string) (User, error) {
 	}
 
 	return user, nil
+}
+
+func (s UserStore) InvalidateActivePasswordResetTokensByUserID(ctx context.Context, userID string) error {
+	query := `
+		UPDATE password_reset_tokens
+		SET used_at = NOW()
+		WHERE user_id = $1
+		  AND used_at IS NULL
+		  AND expires_at > NOW()
+	`
+
+	_, err := s.DB.ExecContext(ctx, query, userID)
+	return err
+}
+
+func (s UserStore) CreatePasswordResetToken(ctx context.Context, token PasswordResetToken) error {
+	query := `
+		INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at)
+		VALUES ($1, $2, $3, $4)
+	`
+
+	_, err := s.DB.ExecContext(ctx, query, token.ID, token.UserID, token.TokenHash, token.ExpiresAt)
+	return err
+}
+
+func (s UserStore) ConsumePasswordResetToken(ctx context.Context, tokenHash string) (string, error) {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+
+	query := `
+		SELECT id, user_id
+		FROM password_reset_tokens
+		WHERE token_hash = $1
+		  AND used_at IS NULL
+		  AND expires_at > NOW()
+		ORDER BY created_at DESC
+		LIMIT 1
+		FOR UPDATE
+	`
+
+	var tokenID string
+	var userID string
+	err = tx.QueryRowContext(ctx, query, tokenHash).Scan(&tokenID, &userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrPasswordResetTokenInvalid
+		}
+		return "", err
+	}
+
+	if _, err := tx.ExecContext(ctx, `UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1`, tokenID); err != nil {
+		return "", err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+
+	return userID, nil
+}
+
+func (s UserStore) UpdatePasswordHashByID(ctx context.Context, userID, passwordHash string) error {
+	query := `
+		UPDATE users
+		SET password_hash = $2, updated_at = NOW()
+		WHERE id = $1
+	`
+
+	result, err := s.DB.ExecContext(ctx, query, userID, passwordHash)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrUserNotFound
+	}
+
+	return nil
 }
