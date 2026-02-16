@@ -3,11 +3,12 @@ package handlers
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"strings"
 	"time"
@@ -22,8 +23,11 @@ import (
 type AuthHandler struct {
 	Users                      models.UserStore
 	TokenManager               utils.TokenManager
+	EmailSender                utils.EmailSender
 	TokenExpiryHours           int
 	PasswordResetExpiryMinutes int
+	PasswordResetOTPDigits     int
+	PasswordResetMaxAttempts   int
 }
 
 type registerRequest struct {
@@ -42,7 +46,8 @@ type passwordResetRequest struct {
 }
 
 type passwordResetConfirmRequest struct {
-	Token       string `json:"token"`
+	Email       string `json:"email"`
+	OTP         string `json:"otp"`
 	NewPassword string `json:"new_password"`
 }
 
@@ -249,40 +254,55 @@ func (h AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request
 	user, err := h.Users.FindByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, models.ErrUserNotFound) {
-			writeJSON(w, http.StatusOK, map[string]string{"message": "If an account exists, a password reset link has been sent"})
+			writeJSON(w, http.StatusOK, map[string]string{"message": "If an account exists, an OTP has been sent to the registered email"})
 			return
 		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
 		return
 	}
 
-	rawToken, err := generatePasswordResetToken()
+	otp, err := generateNumericOTP(h.passwordResetOTPDigits())
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
 		return
 	}
 
 	expiresAt := time.Now().Add(time.Duration(h.PasswordResetExpiryMinutes) * time.Minute)
-	resetToken := models.PasswordResetToken{
-		ID:        uuid.NewString(),
-		UserID:    user.ID,
-		TokenHash: passwordResetTokenHash(rawToken),
-		ExpiresAt: expiresAt,
+	resetOTP := models.PasswordResetOTP{
+		ID:          uuid.NewString(),
+		UserID:      user.ID,
+		OTPHash:     passwordResetOTPHash(otp),
+		ExpiresAt:   expiresAt,
+		MaxAttempts: h.passwordResetMaxAttempts(),
 	}
 
-	if err := h.Users.InvalidateActivePasswordResetTokensByUserID(r.Context(), user.ID); err != nil {
+	if err := h.Users.InvalidateActivePasswordResetOTPsByUserID(r.Context(), user.ID); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
 		return
 	}
-	if err := h.Users.CreatePasswordResetToken(r.Context(), resetToken); err != nil {
+	if err := h.Users.CreatePasswordResetOTP(r.Context(), resetOTP); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
 		return
 	}
 
-	// TODO: Replace with email provider integration.
-	log.Printf("password reset token generated for %s (expires %s): %s", req.Email, expiresAt.Format(time.RFC3339), rawToken)
+	subject := "ReSellution Password Reset OTP"
+	body := fmt.Sprintf(
+		"Your ReSellution password reset OTP is %s.\n\nThis code expires in %d minutes.\nIf you did not request this, please ignore this email.",
+		otp,
+		h.PasswordResetExpiryMinutes,
+	)
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "If an account exists, a password reset link has been sent"})
+	if h.EmailSender != nil {
+		if err := h.EmailSender.Send(req.Email, subject, body); err != nil {
+			log.Printf("failed to send password reset OTP email to %s: %v", req.Email, err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
+			return
+		}
+	} else {
+		log.Printf("SMTP not configured. OTP for %s (expires %s): %s", req.Email, expiresAt.Format(time.RFC3339), otp)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "If an account exists, an OTP has been sent to the registered email"})
 }
 
 func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
@@ -292,11 +312,12 @@ func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	req.Token = strings.TrimSpace(req.Token)
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	req.OTP = strings.TrimSpace(req.OTP)
 	req.NewPassword = strings.TrimSpace(req.NewPassword)
 
-	if req.Token == "" || req.NewPassword == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "token and new_password are required"})
+	if req.Email == "" || req.OTP == "" || req.NewPassword == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "email, otp, and new_password are required"})
 		return
 	}
 	if len(req.NewPassword) < 8 {
@@ -304,10 +325,19 @@ func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	userID, err := h.Users.ConsumePasswordResetToken(r.Context(), passwordResetTokenHash(req.Token))
+	user, err := h.Users.FindByEmail(r.Context(), req.Email)
 	if err != nil {
-		if errors.Is(err, models.ErrPasswordResetTokenInvalid) {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired reset token"})
+		if errors.Is(err, models.ErrUserNotFound) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired otp"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
+		return
+	}
+
+	if err := h.Users.ConsumePasswordResetOTP(r.Context(), user.ID, passwordResetOTPHash(req.OTP)); err != nil {
+		if errors.Is(err, models.ErrPasswordResetOTPInvalid) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired otp"})
 			return
 		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
@@ -320,16 +350,16 @@ func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := h.Users.UpdatePasswordHashByID(r.Context(), userID, passwordHash); err != nil {
+	if err := h.Users.UpdatePasswordHashByID(r.Context(), user.ID, passwordHash); err != nil {
 		if errors.Is(err, models.ErrUserNotFound) {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired reset token"})
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired otp"})
 			return
 		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
 		return
 	}
 
-	if err := h.Users.InvalidateActivePasswordResetTokensByUserID(r.Context(), userID); err != nil {
+	if err := h.Users.InvalidateActivePasswordResetOTPsByUserID(r.Context(), user.ID); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
 		return
 	}
@@ -342,17 +372,43 @@ func (h AuthHandler) createToken(userID string) (string, error) {
 	return h.TokenManager.Create(userID, expiresAt)
 }
 
-func generatePasswordResetToken() (string, error) {
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
-		return "", err
+func generateNumericOTP(length int) (string, error) {
+	if length <= 0 {
+		return "", errors.New("otp length must be positive")
 	}
-	return base64.RawURLEncoding.EncodeToString(raw), nil
+
+	var builder strings.Builder
+	builder.Grow(length)
+	limit := big.NewInt(10)
+
+	for i := 0; i < length; i++ {
+		n, err := rand.Int(rand.Reader, limit)
+		if err != nil {
+			return "", err
+		}
+		builder.WriteByte(byte('0' + n.Int64()))
+	}
+
+	return builder.String(), nil
 }
 
-func passwordResetTokenHash(token string) string {
-	sum := sha256.Sum256([]byte(token))
+func passwordResetOTPHash(otp string) string {
+	sum := sha256.Sum256([]byte(otp))
 	return hex.EncodeToString(sum[:])
+}
+
+func (h AuthHandler) passwordResetOTPDigits() int {
+	if h.PasswordResetOTPDigits <= 0 {
+		return 6
+	}
+	return h.PasswordResetOTPDigits
+}
+
+func (h AuthHandler) passwordResetMaxAttempts() int {
+	if h.PasswordResetMaxAttempts <= 0 {
+		return 5
+	}
+	return h.PasswordResetMaxAttempts
 }
 
 func toPublicUser(user models.User) publicUser {

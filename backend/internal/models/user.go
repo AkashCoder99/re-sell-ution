@@ -10,6 +10,7 @@ import (
 
 var ErrUserNotFound = errors.New("user not found")
 var ErrPasswordResetTokenInvalid = errors.New("password reset token is invalid or expired")
+var ErrPasswordResetOTPInvalid = errors.New("password reset otp is invalid or expired")
 
 type User struct {
 	ID               string    `json:"id"`
@@ -32,6 +33,14 @@ type PasswordResetToken struct {
 	UserID    string
 	TokenHash string
 	ExpiresAt time.Time
+}
+
+type PasswordResetOTP struct {
+	ID          string
+	UserID      string
+	OTPHash     string
+	ExpiresAt   time.Time
+	MaxAttempts int
 }
 
 func (s UserStore) Create(ctx context.Context, user User) (User, error) {
@@ -261,5 +270,86 @@ func (s UserStore) UpdatePasswordHashByID(ctx context.Context, userID, passwordH
 		return ErrUserNotFound
 	}
 
+	return nil
+}
+
+func (s UserStore) InvalidateActivePasswordResetOTPsByUserID(ctx context.Context, userID string) error {
+	query := `
+		UPDATE password_reset_otps
+		SET used_at = NOW()
+		WHERE user_id = $1
+		  AND used_at IS NULL
+		  AND expires_at > NOW()
+	`
+
+	_, err := s.DB.ExecContext(ctx, query, userID)
+	return err
+}
+
+func (s UserStore) CreatePasswordResetOTP(ctx context.Context, otp PasswordResetOTP) error {
+	query := `
+		INSERT INTO password_reset_otps (id, user_id, otp_hash, expires_at, max_attempts)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+
+	_, err := s.DB.ExecContext(ctx, query, otp.ID, otp.UserID, otp.OTPHash, otp.ExpiresAt, otp.MaxAttempts)
+	return err
+}
+
+func (s UserStore) ConsumePasswordResetOTP(ctx context.Context, userID, otpHash string) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	query := `
+		SELECT id, otp_hash, attempt_count, max_attempts
+		FROM password_reset_otps
+		WHERE user_id = $1
+		  AND used_at IS NULL
+		  AND expires_at > NOW()
+		ORDER BY created_at DESC
+		LIMIT 1
+		FOR UPDATE
+	`
+
+	var id string
+	var storedHash string
+	var attemptCount int
+	var maxAttempts int
+	err = tx.QueryRowContext(ctx, query, userID).Scan(&id, &storedHash, &attemptCount, &maxAttempts)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrPasswordResetOTPInvalid
+		}
+		return err
+	}
+
+	if storedHash != otpHash {
+		nextAttemptCount := attemptCount + 1
+		if nextAttemptCount >= maxAttempts {
+			if _, err := tx.ExecContext(ctx, `UPDATE password_reset_otps SET attempt_count = $2, used_at = NOW() WHERE id = $1`, id, nextAttemptCount); err != nil {
+				return err
+			}
+		} else {
+			if _, err := tx.ExecContext(ctx, `UPDATE password_reset_otps SET attempt_count = $2 WHERE id = $1`, id, nextAttemptCount); err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+		return ErrPasswordResetOTPInvalid
+	}
+
+	if _, err := tx.ExecContext(ctx, `UPDATE password_reset_otps SET used_at = NOW() WHERE id = $1`, id); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
 	return nil
 }

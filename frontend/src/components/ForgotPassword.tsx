@@ -34,7 +34,7 @@ export default function ForgotPassword({ onBack, onGoToReset }: ForgotPasswordPr
 
     try {
       const response = await requestPasswordReset(email)
-      setMessage(response.message || 'Password reset link sent to your email. Please check your inbox.')
+      setMessage(response.message || 'OTP sent to your email. Please check your inbox.')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to send reset email')
     } finally {
@@ -45,7 +45,7 @@ export default function ForgotPassword({ onBack, onGoToReset }: ForgotPasswordPr
   return (
     <div className="forgot-password">
       <h2>🔒 Reset Password</h2>
-      <p className="subtitle">We'll send you a reset link via email</p>
+      <p className="subtitle">We'll send a one-time passcode (OTP) to your email</p>
 
       {error && <p className="error-message">{error}</p>}
       {message && <p className="success-message">{message}</p>}
@@ -64,10 +64,10 @@ export default function ForgotPassword({ onBack, onGoToReset }: ForgotPasswordPr
 
         <div className="button-group">
           <button type="submit" disabled={loading}>
-            {loading ? 'Sending...' : 'Send Reset Link'}
+            {loading ? 'Sending...' : 'Send OTP'}
           </button>
           <button type="button" onClick={onGoToReset}>
-            Have token? Reset now
+            Have OTP? Reset now
           </button>
           <button type="button" className="secondary" onClick={onBack}>
             Back to Login

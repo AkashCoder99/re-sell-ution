@@ -17,7 +17,8 @@ export interface LoginRequest {
 }
 
 export interface ConfirmPasswordResetRequest {
-  token: string
+  email: string
+  otp: string
   new_password: string
 }
 
@@ -31,7 +32,7 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 // Mock storage for demo (only used when USE_MOCK is true)
 const mockUsers: Record<string, PublicUser & { password: string }> = {}
 let mockTokenStore = ''
-const mockPasswordResetTokens: Record<string, { email: string; expiresAt: number }> = {}
+const mockPasswordResetOtps: Record<string, { otp: string; expiresAt: number }> = {}
 
 function mockDelay(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 400))
@@ -174,35 +175,35 @@ async function mockAPI<TResponse>(path: string, options: RequestInit): Promise<T
   if (path === '/api/v1/auth/password/reset/request' && method === 'POST') {
     const { email } = body as { email?: string }
     if (!email || !mockUsers[email]) {
-      return { message: 'If an account exists, a password reset link has been sent' } as TResponse
+      return { message: 'If an account exists, an OTP has been sent to the registered email' } as TResponse
     }
 
-    const token = 'mock_reset_' + Date.now()
-    mockPasswordResetTokens[token] = {
-      email,
+    const otp = String(Math.floor(100000 + Math.random() * 900000))
+    mockPasswordResetOtps[email] = {
+      otp,
       expiresAt: Date.now() + 15 * 60 * 1000
     }
-    return { message: `Password reset token (mock): ${token}` } as TResponse
+    return { message: `OTP sent (mock): ${otp}` } as TResponse
   }
 
   // Password Reset Confirm
   if (path === '/api/v1/auth/password/reset/confirm' && method === 'POST') {
-    const { token, new_password } = body as ConfirmPasswordResetRequest
-    const resetEntry = mockPasswordResetTokens[token]
-    if (!resetEntry || Date.now() > resetEntry.expiresAt) {
-      throw new Error('Invalid or expired reset token')
+    const { email, otp, new_password } = body as ConfirmPasswordResetRequest
+    const resetEntry = mockPasswordResetOtps[email]
+    if (!resetEntry || Date.now() > resetEntry.expiresAt || otp !== resetEntry.otp) {
+      throw new Error('Invalid or expired otp')
     }
     if (!new_password || new_password.length < 8) {
       throw new Error('new_password must be at least 8 characters')
     }
 
-    const user = mockUsers[resetEntry.email]
+    const user = mockUsers[email]
     if (!user) {
-      throw new Error('Invalid or expired reset token')
+      throw new Error('Invalid or expired otp')
     }
 
     user.password = new_password
-    delete mockPasswordResetTokens[token]
+    delete mockPasswordResetOtps[email]
     return { message: 'password reset successful' } as TResponse
   }
 
