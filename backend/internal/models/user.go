@@ -13,12 +13,15 @@ var ErrPasswordResetTokenInvalid = errors.New("password reset token is invalid o
 var ErrPasswordResetOTPInvalid = errors.New("password reset otp is invalid or expired")
 
 type User struct {
-	ID           string    `json:"id"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"`
-	FullName     string    `json:"full_name"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID               string    `json:"id"`
+	Email            string    `json:"email"`
+	PasswordHash     string    `json:"-"`
+	FullName         string    `json:"full_name"`
+	City             string    `json:"city,omitempty"`
+	Bio              string    `json:"bio,omitempty"`
+	ProfileImageURL  string    `json:"profile_image_url,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 type UserStore struct {
@@ -59,17 +62,21 @@ func (s UserStore) Create(ctx context.Context, user User) (User, error) {
 
 func (s UserStore) FindByEmail(ctx context.Context, email string) (User, error) {
 	query := `
-		SELECT id, email, password_hash, full_name, created_at, updated_at
+		SELECT id, email, password_hash, full_name, city, bio, profile_image_url, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
 
 	var user User
+	var city, bio, profileImageURL sql.NullString
 	err := s.DB.QueryRowContext(ctx, query, strings.ToLower(email)).Scan(
 		&user.ID,
 		&user.Email,
 		&user.PasswordHash,
 		&user.FullName,
+		&city,
+		&bio,
+		&profileImageURL,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -80,22 +87,29 @@ func (s UserStore) FindByEmail(ctx context.Context, email string) (User, error) 
 		return User{}, err
 	}
 
+	user.City = city.String
+	user.Bio = bio.String
+	user.ProfileImageURL = profileImageURL.String
 	return user, nil
 }
 
 func (s UserStore) FindByID(ctx context.Context, id string) (User, error) {
 	query := `
-		SELECT id, email, password_hash, full_name, created_at, updated_at
+		SELECT id, email, password_hash, full_name, city, bio, profile_image_url, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
 
 	var user User
+	var city, bio, profileImageURL sql.NullString
 	err := s.DB.QueryRowContext(ctx, query, id).Scan(
 		&user.ID,
 		&user.Email,
 		&user.PasswordHash,
 		&user.FullName,
+		&city,
+		&bio,
+		&profileImageURL,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -106,6 +120,9 @@ func (s UserStore) FindByID(ctx context.Context, id string) (User, error) {
 		return User{}, err
 	}
 
+	user.City = city.String
+	user.Bio = bio.String
+	user.ProfileImageURL = profileImageURL.String
 	return user, nil
 }
 
@@ -169,6 +186,68 @@ func (s UserStore) ConsumePasswordResetToken(ctx context.Context, tokenHash stri
 	}
 
 	return userID, nil
+}
+
+// ProfileUpdate holds allowed profile fields. Only these may be updated via PATCH /users/me.
+type ProfileUpdate struct {
+	FullName        *string
+	City            *string
+	Bio             *string
+	ProfileImageURL *string
+}
+
+func (s UserStore) UpdateProfile(ctx context.Context, userID string, u ProfileUpdate) (User, error) {
+	user, err := s.FindByID(ctx, userID)
+	if err != nil {
+		return User{}, err
+	}
+
+	if u.FullName != nil {
+		trimmed := strings.TrimSpace(*u.FullName)
+		if trimmed != "" {
+			user.FullName = trimmed
+		}
+	}
+	if u.City != nil {
+		user.City = strings.TrimSpace(*u.City)
+	}
+	if u.Bio != nil {
+		b := strings.TrimSpace(*u.Bio)
+		if len(b) > 500 {
+			b = b[:500]
+		}
+		user.Bio = b
+	}
+	if u.ProfileImageURL != nil {
+		user.ProfileImageURL = strings.TrimSpace(*u.ProfileImageURL)
+	}
+
+	query := `
+		UPDATE users
+		SET full_name = $2, city = $3, bio = $4, profile_image_url = $5, updated_at = NOW()
+		WHERE id = $1
+		RETURNING created_at, updated_at
+	`
+
+	err = s.DB.QueryRowContext(ctx, query,
+		userID,
+		user.FullName,
+		nullIfEmpty(user.City),
+		nullIfEmpty(user.Bio),
+		nullIfEmpty(user.ProfileImageURL),
+	).Scan(&user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		return User{}, err
+	}
+
+	return user, nil
+}
+
+func nullIfEmpty(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 func (s UserStore) UpdatePasswordHashByID(ctx context.Context, userID, passwordHash string) error {
