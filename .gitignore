@@ -39,6 +39,7 @@ frontend/.vite/
 # ------------------------------
 bin/
 backend/bin/
+.gocache/
 *.test
 *.out
 .coverprofile

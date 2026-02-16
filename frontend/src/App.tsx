@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
-import { getMe, login, register, updateProfile } from './api/auth'
+import { getMe, login, logout, register, updateProfile } from './api/auth'
 import type { LoginRequest, RegisterRequest } from './api/auth'
 import type { PublicUser, UpdateProfileRequest } from './types/user'
 import CitySelector from './components/CitySelector'
@@ -94,13 +94,29 @@ export default function App() {
     }
   }
 
-  function handleLogout() {
-    localStorage.removeItem('auth_token')
-    setToken('')
-    setUser(null)
-    setMessage('Logged out.')
-    setViewMode('login')
-    setShowCitySelector(false)
+  async function handleLogout() {
+    setLoading(true)
+    setMessage('')
+
+    try {
+      if (token) {
+        await logout(token)
+      }
+      setMessage('Logged out.')
+    } catch (error: unknown) {
+      setMessage(
+        error instanceof Error
+          ? `Logout failed on server; signed out locally: ${error.message}`
+          : 'Logout failed on server; signed out locally.'
+      )
+    } finally {
+      localStorage.removeItem('auth_token')
+      setToken('')
+      setUser(null)
+      setViewMode('login')
+      setShowCitySelector(false)
+      setLoading(false)
+    }
   }
 
   async function handleCitySelected(city: string) {
