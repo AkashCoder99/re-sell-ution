@@ -1,6 +1,10 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"log"
@@ -16,9 +20,10 @@ import (
 )
 
 type AuthHandler struct {
-	Users            models.UserStore
-	TokenManager     utils.TokenManager
-	TokenExpiryHours int
+	Users                      models.UserStore
+	TokenManager               utils.TokenManager
+	TokenExpiryHours           int
+	PasswordResetExpiryMinutes int
 }
 
 type registerRequest struct {
@@ -30,6 +35,15 @@ type registerRequest struct {
 type loginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type passwordResetRequest struct {
+	Email string `json:"email"`
+}
+
+type passwordResetConfirmRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
 }
 
 type authResponse struct {
@@ -175,9 +189,126 @@ func (h AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"message": "logged out"})
 }
 
+func (h AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
+	var req passwordResetRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	if req.Email == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "email is required"})
+		return
+	}
+
+	user, err := h.Users.FindByEmail(r.Context(), req.Email)
+	if err != nil {
+		if errors.Is(err, models.ErrUserNotFound) {
+			writeJSON(w, http.StatusOK, map[string]string{"message": "If an account exists, a password reset link has been sent"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
+		return
+	}
+
+	rawToken, err := generatePasswordResetToken()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
+		return
+	}
+
+	expiresAt := time.Now().Add(time.Duration(h.PasswordResetExpiryMinutes) * time.Minute)
+	resetToken := models.PasswordResetToken{
+		ID:        uuid.NewString(),
+		UserID:    user.ID,
+		TokenHash: passwordResetTokenHash(rawToken),
+		ExpiresAt: expiresAt,
+	}
+
+	if err := h.Users.InvalidateActivePasswordResetTokensByUserID(r.Context(), user.ID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
+		return
+	}
+	if err := h.Users.CreatePasswordResetToken(r.Context(), resetToken); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
+		return
+	}
+
+	// TODO: Replace with email provider integration.
+	log.Printf("password reset token generated for %s (expires %s): %s", req.Email, expiresAt.Format(time.RFC3339), rawToken)
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "If an account exists, a password reset link has been sent"})
+}
+
+func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
+	var req passwordResetConfirmRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+
+	req.Token = strings.TrimSpace(req.Token)
+	req.NewPassword = strings.TrimSpace(req.NewPassword)
+
+	if req.Token == "" || req.NewPassword == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "token and new_password are required"})
+		return
+	}
+	if len(req.NewPassword) < 8 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "new_password must be at least 8 characters"})
+		return
+	}
+
+	userID, err := h.Users.ConsumePasswordResetToken(r.Context(), passwordResetTokenHash(req.Token))
+	if err != nil {
+		if errors.Is(err, models.ErrPasswordResetTokenInvalid) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired reset token"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
+		return
+	}
+
+	passwordHash, err := utils.HashPassword(req.NewPassword)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
+		return
+	}
+
+	if err := h.Users.UpdatePasswordHashByID(r.Context(), userID, passwordHash); err != nil {
+		if errors.Is(err, models.ErrUserNotFound) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired reset token"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
+		return
+	}
+
+	if err := h.Users.InvalidateActivePasswordResetTokensByUserID(r.Context(), userID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "password reset successful"})
+}
+
 func (h AuthHandler) createToken(userID string) (string, error) {
 	expiresAt := time.Now().Add(time.Duration(h.TokenExpiryHours) * time.Hour)
 	return h.TokenManager.Create(userID, expiresAt)
+}
+
+func generatePasswordResetToken() (string, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+func passwordResetTokenHash(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
 
 func toPublicUser(user models.User) publicUser {

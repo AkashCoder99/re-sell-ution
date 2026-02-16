@@ -29,9 +29,10 @@ func main() {
 	userStore := models.UserStore{DB: database}
 	tokenManager := utils.NewTokenManager(cfg.TokenSecret)
 	authHandler := handlers.AuthHandler{
-		Users:            userStore,
-		TokenManager:     tokenManager,
-		TokenExpiryHours: cfg.TokenExpiryHours,
+		Users:                      userStore,
+		TokenManager:               tokenManager,
+		TokenExpiryHours:           cfg.TokenExpiryHours,
+		PasswordResetExpiryMinutes: cfg.PasswordResetExpiryMinutes,
 	}
 
 	mux := http.NewServeMux()
@@ -43,6 +44,8 @@ func main() {
 	})
 	mux.HandleFunc("POST /api/v1/auth/register", authHandler.Register)
 	mux.HandleFunc("POST /api/v1/auth/login", authHandler.Login)
+	mux.HandleFunc("POST /api/v1/auth/password/reset/request", authHandler.RequestPasswordReset)
+	mux.HandleFunc("POST /api/v1/auth/password/reset/confirm", authHandler.ConfirmPasswordReset)
 	mux.HandleFunc("GET /api/v1/auth/me", middleware.Auth(tokenManager, authHandler.Me))
 	mux.HandleFunc("POST /api/v1/auth/logout", middleware.Auth(tokenManager, authHandler.Logout))
 
