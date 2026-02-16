@@ -31,6 +31,12 @@ function mockDelay(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 400))
 }
 
+function toPublicMockUser(user: PublicUser & { password: string }): PublicUser {
+  const { password, ...publicUser } = user
+  void password
+  return publicUser
+}
+
 async function request<TResponse>(path: string, options: RequestInit = {}): Promise<TResponse> {
   // Use mock API for frontend-only demo
   if (USE_MOCK) {
@@ -99,9 +105,7 @@ async function mockAPI<TResponse>(path: string, options: RequestInit): Promise<T
     }
 
     mockTokenStore = 'mock_token_' + Date.now()
-    const { password: _, ...publicUser } = storedUser
-
-    return { token: mockTokenStore, user: publicUser } as TResponse
+    return { token: mockTokenStore, user: toPublicMockUser(storedUser) } as TResponse
   }
 
   // Get Me
@@ -118,8 +122,20 @@ async function mockAPI<TResponse>(path: string, options: RequestInit): Promise<T
       throw new Error('User not found')
     }
 
-    const { password: _, ...publicUser } = firstUser
-    return { user: publicUser } as TResponse
+    return { user: toPublicMockUser(firstUser) } as TResponse
+  }
+
+  // Logout
+  if (path === '/api/v1/auth/logout' && method === 'POST') {
+    const authHeader = (options.headers as Record<string, string>)?.Authorization
+    const token = authHeader?.replace('Bearer ', '')
+
+    if (!token || token !== mockTokenStore) {
+      throw new Error('Invalid or expired token')
+    }
+
+    mockTokenStore = ''
+    return { message: 'logged out' } as TResponse
   }
 
   // Update Profile
@@ -145,8 +161,7 @@ async function mockAPI<TResponse>(path: string, options: RequestInit): Promise<T
     if (updates.bio) storedUser.bio = updates.bio
     if (updates.photo_url) storedUser.photo_url = updates.photo_url
 
-    const { password: _, ...publicUser } = storedUser
-    return { user: publicUser } as TResponse
+    return { user: toPublicMockUser(storedUser) } as TResponse
   }
 
   // Password Reset Request
@@ -173,6 +188,15 @@ export function login(payload: LoginRequest): Promise<AuthPayload> {
 
 export function getMe(token: string): Promise<MeResponse> {
   return request<MeResponse>('/api/v1/auth/me', {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  })
+}
+
+export function logout(token: string): Promise<{ message: string }> {
+  return request<{ message: string }>('/api/v1/auth/logout', {
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`
     }

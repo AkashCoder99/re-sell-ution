@@ -163,6 +163,18 @@ func (h AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]publicUser{"user": toPublicUser(user)})
 }
 
+func (h AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	_, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	// Current auth is stateless JWT, so logout is client token disposal.
+	// Keeping this endpoint enables forward compatibility with token revocation.
+	writeJSON(w, http.StatusOK, map[string]string{"message": "logged out"})
+}
+
 func (h AuthHandler) createToken(userID string) (string, error) {
 	expiresAt := time.Now().Add(time.Duration(h.TokenExpiryHours) * time.Hour)
 	return h.TokenManager.Create(userID, expiresAt)
