@@ -1,6 +1,7 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { useState } from 'react'
 import { POPULAR_CITIES } from '../utils/constants'
+import { IconLocation } from './Icons'
 
 interface CitySelectorProps {
   currentCity?: string
@@ -47,7 +48,10 @@ export default function CitySelector({ currentCity, onCitySelected, onSkip }: Ci
 
   return (
     <div className="city-selector">
-      <h2>📍 Choose Your City</h2>
+      <h2 className="city-selector-title">
+        <IconLocation className="city-selector-title-icon" aria-hidden />
+        Choose Your City
+      </h2>
       <p className="subtitle">Select your location to discover local listings</p>
 
       {error && <p className="error-message">{error}</p>}

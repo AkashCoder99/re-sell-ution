@@ -7,11 +7,43 @@ import CitySelector from './components/CitySelector'
 import ProfileEdit from './components/ProfileEdit'
 import ForgotPassword from './components/ForgotPassword'
 import ResetPassword from './components/ResetPassword'
+import CreateListing from './components/CreateListing'
+import MyListingsDashboard from './components/MyListingsDashboard'
+import {
+  IconEmail,
+  IconLocation,
+  IconBio,
+  IconImage,
+  IconAddListing,
+  IconListings,
+  IconEdit,
+  IconCity,
+  IconLogout,
+  IconBack
+} from './components/Icons'
 
 const defaultLoginForm: LoginRequest = { email: '', password: '' }
 const defaultRegisterForm: RegisterRequest = { full_name: '', email: '', password: '' }
 
-type ViewMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'city-select' | 'profile' | 'profile-edit'
+/** Preview mode: use this token + user to explore the app without logging in (mock API only). */
+const PREVIEW_TOKEN = 'preview_no_login'
+const PREVIEW_USER: PublicUser = {
+  id: 'preview_user',
+  email: 'preview@resellution.demo',
+  full_name: 'Demo User',
+  city: 'New York'
+}
+
+type ViewMode =
+  | 'login'
+  | 'register'
+  | 'forgot-password'
+  | 'reset-password'
+  | 'city-select'
+  | 'profile'
+  | 'profile-edit'
+  | 'create-listing'
+  | 'my-listings'
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('login')
@@ -24,11 +56,18 @@ export default function App() {
   const [showCitySelector, setShowCitySelector] = useState<boolean>(false)
   const [showLoginPassword, setShowLoginPassword] = useState<boolean>(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState<boolean>(false)
+  const [listingsRefresh, setListingsRefresh] = useState(0)
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user])
 
   useEffect(() => {
     if (!token) {
       setUser(null)
+      return
+    }
+
+    if (token === PREVIEW_TOKEN) {
+      setUser(PREVIEW_USER)
+      setShowCitySelector(false)
       return
     }
 
@@ -96,6 +135,15 @@ export default function App() {
   }
 
   async function handleLogout() {
+    if (token === PREVIEW_TOKEN) {
+      setToken('')
+      setUser(null)
+      setViewMode('login')
+      setShowCitySelector(false)
+      setMessage('Preview ended.')
+      return
+    }
+
     setLoading(true)
     setMessage('')
 
@@ -123,6 +171,14 @@ export default function App() {
   async function handleCitySelected(city: string) {
     if (!token) return
 
+    if (token === PREVIEW_TOKEN) {
+      setUser((prev) => (prev ? { ...prev, city } : null))
+      setShowCitySelector(false)
+      setViewMode('profile')
+      setMessage(`City set to ${city} (preview)`)
+      return
+    }
+
     const data = await updateProfile(token, { city })
     setUser(data.user)
     setShowCitySelector(false)
@@ -132,6 +188,13 @@ export default function App() {
 
   async function handleProfileUpdate(updates: UpdateProfileRequest) {
     if (!token) return
+
+    if (token === PREVIEW_TOKEN) {
+      setUser((prev) => (prev ? { ...prev, ...updates } : null))
+      setViewMode('profile')
+      setMessage('Profile updated (preview)')
+      return
+    }
 
     const data = await updateProfile(token, updates)
     setUser(data.user)
@@ -187,25 +250,90 @@ export default function App() {
         ) : isAuthenticated && user ? (
           /* Profile View */
           <div className="profile">
-            <h2>👋 Welcome, {user.full_name}</h2>
+            {token === PREVIEW_TOKEN && (
+              <p className="preview-banner">You are in preview mode — no real account. Data is mock-only.</p>
+            )}
+            <h2 className="profile-welcome">Welcome, {user.full_name}</h2>
             <div className="profile-details">
-              <p><strong>📧 Email:</strong> {user.email}</p>
-              {user.city && <p><strong>📍 City:</strong> {user.city}</p>}
-              {user.bio && <p><strong>💬 Bio:</strong> {user.bio}</p>}
-              {user.photo_url && <p><strong>🖼️ Photo:</strong> <a href={user.photo_url} target="_blank" rel="noopener noreferrer">View</a></p>}
+              <div className="profile-detail-row">
+                <IconEmail className="profile-detail-icon" aria-hidden />
+                <span className="profile-detail-label">Email</span>
+                <span className="profile-detail-value">{user.email}</span>
+              </div>
+              {user.city && (
+                <div className="profile-detail-row">
+                  <IconLocation className="profile-detail-icon" aria-hidden />
+                  <span className="profile-detail-label">City</span>
+                  <span className="profile-detail-value">{user.city}</span>
+                </div>
+              )}
+              {user.bio && (
+                <div className="profile-detail-row">
+                  <IconBio className="profile-detail-icon" aria-hidden />
+                  <span className="profile-detail-label">Bio</span>
+                  <span className="profile-detail-value">{user.bio}</span>
+                </div>
+              )}
+              {user.photo_url && (
+                <div className="profile-detail-row">
+                  <IconImage className="profile-detail-icon" aria-hidden />
+                  <span className="profile-detail-label">Photo</span>
+                  <span className="profile-detail-value">
+                    <a href={user.photo_url} target="_blank" rel="noopener noreferrer">View</a>
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="button-group">
-              <button type="button" onClick={() => setViewMode('profile-edit')}>
-                Edit Profile
+            <div className="profile-actions">
+              <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('create-listing')}>
+                <IconAddListing className="profile-action-icon" aria-hidden />
+                <span>Create Listing</span>
               </button>
-              <button type="button" onClick={() => setShowCitySelector(true)}>
-                Change City
+              <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('my-listings')}>
+                <IconListings className="profile-action-icon" aria-hidden />
+                <span>My Listings</span>
               </button>
-              <button type="button" className="secondary" onClick={handleLogout}>
-                Logout
+              <button type="button" className="profile-action-btn" onClick={() => setViewMode('profile-edit')}>
+                <IconEdit className="profile-action-icon" aria-hidden />
+                <span>Edit Profile</span>
+              </button>
+              <button type="button" className="profile-action-btn" onClick={() => setShowCitySelector(true)}>
+                <IconCity className="profile-action-icon" aria-hidden />
+                <span>Change City</span>
+              </button>
+              <button type="button" className="profile-action-btn secondary" onClick={handleLogout}>
+                <IconLogout className="profile-action-icon" aria-hidden />
+                <span>Logout</span>
               </button>
             </div>
           </div>
+        ) : isAuthenticated && viewMode === 'create-listing' && user ? (
+          <CreateListing
+            token={token}
+            userCity={user.city || ''}
+            onSuccess={() => {
+              setViewMode('profile')
+              setListingsRefresh((r) => r + 1)
+              setMessage('Listing created successfully.')
+            }}
+            onCancel={() => setViewMode('profile')}
+          />
+        ) : isAuthenticated && viewMode === 'my-listings' ? (
+          <>
+            <button
+              type="button"
+              className="back-link-btn"
+              onClick={() => setViewMode('profile')}
+            >
+              <IconBack className="back-link-icon" aria-hidden />
+              <span>Back to Profile</span>
+            </button>
+            <MyListingsDashboard
+              token={token}
+              refreshTrigger={listingsRefresh}
+              onMarkSold={() => setListingsRefresh((r) => r + 1)}
+            />
+          </>
         ) : viewMode === 'forgot-password' ? (
           /* Forgot Password */
           <ForgotPassword onBack={() => setViewMode('login')} onGoToReset={() => setViewMode('reset-password')} />
@@ -270,6 +398,19 @@ export default function App() {
                 >
                   Forgot password?
                 </button>
+
+                <button
+                  type="button"
+                  className="link-button preview-button"
+                  onClick={() => {
+                    setToken(PREVIEW_TOKEN)
+                    setUser(PREVIEW_USER)
+                    setViewMode('profile')
+                    setMessage('Preview mode — explore without an account. Use mock data.')
+                  }}
+                >
+                  Preview app without login
+                </button>
               </form>
             ) : (
               <form onSubmit={handleRegister} className="auth-form">
@@ -306,6 +447,19 @@ export default function App() {
 
                 <button type="submit" disabled={loading}>
                   {loading ? 'Please wait...' : 'Create account'}
+                </button>
+
+                <button
+                  type="button"
+                  className="link-button preview-button"
+                  onClick={() => {
+                    setToken(PREVIEW_TOKEN)
+                    setUser(PREVIEW_USER)
+                    setViewMode('profile')
+                    setMessage('Preview mode — explore without an account. Use mock data.')
+                  }}
+                >
+                  Preview app without login
                 </button>
               </form>
             )}
