@@ -1,5 +1,6 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { useState } from 'react'
+import { isValidEmail } from '../utils/validation'
 
 interface ForgotPasswordProps {
   onBack: () => void
@@ -22,6 +23,12 @@ export default function ForgotPassword({ onBack }: ForgotPasswordProps) {
     setLoading(true)
     setError('')
     setMessage('')
+
+    if (!isValidEmail(email)) {
+      setError('Please enter a valid email address')
+      setLoading(false)
+      return
+    }
 
     try {
       // TODO: Call API endpoint for password reset

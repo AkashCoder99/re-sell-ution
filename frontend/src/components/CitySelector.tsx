@@ -1,5 +1,6 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { useState } from 'react'
+import { POPULAR_CITIES } from '../utils/constants'
 
 interface CitySelectorProps {
   currentCity?: string
@@ -11,35 +12,19 @@ export default function CitySelector({ currentCity, onCitySelected, onSkip }: Ci
   const [selectedCity, setSelectedCity] = useState(currentCity || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
-  // Common cities list (can be extended or fetched from backend)
-  const popularCities = [
-    'New York',
-    'Los Angeles',
-    'Chicago',
-    'Houston',
-    'Phoenix',
-    'Philadelphia',
-    'San Antonio',
-    'San Diego',
-    'Dallas',
-    'San Jose',
-    'Austin',
-    'Jacksonville',
-    'Fort Worth',
-    'Columbus',
-    'Charlotte',
-    'San Francisco',
-    'Indianapolis',
-    'Seattle',
-    'Denver',
-    'Boston'
-  ]
+  // Use imported popular cities
+  const popularCities = [...POPULAR_CITIES]
 
   function handleCityChange(event: ChangeEvent<HTMLSelectElement | HTMLInputElement>) {
     setSelectedCity(event.target.value)
     setError('')
   }
+
+  const filteredCities = popularCities.filter((city) =>
+    city.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -69,10 +54,21 @@ export default function CitySelector({ currentCity, onCitySelected, onSkip }: Ci
 
       <form onSubmit={handleSubmit} className="city-form">
         <label>
+          Search cities
+          <input
+            type="text"
+            placeholder="Type to search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ marginBottom: '8px' }}
+          />
+        </label>
+
+        <label>
           Select from popular cities
           <select value={selectedCity} onChange={handleCityChange}>
             <option value="">-- Choose a city --</option>
-            {popularCities.map((city) => (
+            {filteredCities.map((city) => (
               <option key={city} value={city}>
                 {city}
               </option>

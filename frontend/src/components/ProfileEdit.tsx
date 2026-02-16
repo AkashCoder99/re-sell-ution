@@ -75,7 +75,11 @@ export default function ProfileEdit({ user, onUpdate, onCancel }: ProfileEditPro
             onChange={handleChange}
             placeholder="Tell us about yourself"
             rows={4}
+            maxLength={500}
           />
+          <small style={{ color: 'var(--gray-400)', fontSize: '0.85em' }}>
+            {formData.bio.length}/500 characters
+          </small>
         </label>
 
         <label>
