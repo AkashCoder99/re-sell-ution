@@ -463,25 +463,184 @@ textarea:focus {
   color: #0369a1;
 }
 
-.profile h2 {
-  margin: 0 0 0.3rem;
+.preview-button {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--secondary);
 }
 
-.profile p {
+.preview-button:hover {
+  color: var(--primary-dark);
+}
+
+.preview-banner {
   margin: 0 0 1rem;
-  color: #475569;
+  padding: 0.5rem 0.75rem;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid var(--secondary);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: var(--gray-800);
+}
+
+/* Base icon size */
+.icon {
+  width: 1.25em;
+  height: 1.25em;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Profile section */
+.profile h2,
+.profile-welcome {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gray-900);
 }
 
 .profile-details {
-  background: #f8fafc;
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1rem;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
-.profile-details p {
-  margin: 0.5rem 0;
+.profile-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
   font-size: 0.95rem;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.profile-detail-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.profile-detail-row:first-child {
+  padding-top: 0;
+}
+
+.profile-detail-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--gray-500);
+}
+
+.profile-detail-label {
+  min-width: 4rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  font-size: 0.875rem;
+}
+
+.profile-detail-value {
+  color: var(--gray-800);
+  flex: 1;
+}
+
+.profile-detail-value a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.profile-detail-value a:hover {
+  text-decoration: underline;
+}
+
+.profile-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.profile-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: 2px solid var(--gray-200);
+  background: white;
+  color: var(--gray-700);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.profile-action-btn:hover {
+  border-color: var(--primary-light);
+  color: var(--primary);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.profile-action-btn.primary {
+  border-color: var(--primary);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+}
+
+.profile-action-btn.primary:hover {
+  border-color: var(--primary-dark);
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #1d4ed8 100%);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+}
+
+.profile-action-btn.secondary {
+  border-color: var(--gray-200);
+  color: var(--gray-600);
+}
+
+.profile-action-btn.secondary:hover {
+  border-color: var(--gray-300);
+  color: var(--gray-800);
+  background: var(--gray-50);
+}
+
+.profile-action-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.profile-action-btn.primary .profile-action-icon {
+  color: inherit;
+}
+
+/* Back link (My Listings) */
+.back-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0;
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.back-link-btn:hover {
+  color: var(--primary-dark);
+}
+
+.back-link-icon {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 .button-group {
@@ -496,9 +655,21 @@ textarea:focus {
 }
 
 /* City Selector */
-.city-selector h2 {
+.city-selector h2,
+.city-selector-title {
   margin: 0 0 0.5rem;
   font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.city-selector-title-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--primary);
 }
 
 .city-form {
@@ -582,4 +753,551 @@ textarea:focus {
 
 .mode-toggle button.active::after {
   opacity: 1;
+}
+
+/* ----- EPIC-03 Listings & Media ----- */
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.field-error {
+  display: block;
+  color: var(--error);
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+/* Create Listing (F12) */
+.create-listing {
+  max-width: 560px;
+}
+
+.create-listing h2,
+.create-listing-heading {
+  margin: 0 0 1.25rem;
+  font-size: 1.75rem;
+  color: var(--gray-900);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.create-listing-heading-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--primary);
+}
+
+.create-listing-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.create-listing-step {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 2px solid var(--gray-200);
+  background: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.create-listing-step:hover:not(.active) {
+  border-color: var(--gray-300);
+  color: var(--gray-800);
+}
+
+.create-listing-step.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
+.create-listing-step.done {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.create-listing-form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.create-listing-step-content {
+  display: grid;
+  gap: 1rem;
+}
+
+.create-listing-step-content label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.create-listing-photo-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+
+.create-listing-review {
+  background: var(--gray-50);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.create-listing-review-block h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
+
+.create-listing-review-meta {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+
+.create-listing-review-desc {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.create-listing-review-photos {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}
+
+.char-count {
+  font-size: 0.85rem;
+  color: var(--gray-500);
+}
+
+/* Photo Upload (F13) */
+.photo-upload {
+  margin: 0.5rem 0;
+}
+
+.photo-upload-dropzone {
+  border: 2px dashed var(--gray-300);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  position: relative;
+  transition: border-color 0.2s ease;
+  background: var(--gray-50);
+}
+
+.photo-upload-dropzone:hover:not(.disabled) {
+  border-color: var(--primary-light);
+}
+
+.photo-upload-dropzone.drag-over {
+  border-color: var(--primary);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.photo-upload-dropzone.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.photo-upload-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.photo-upload-hint {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  color: var(--gray-600);
+}
+
+.photo-upload-limit {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--gray-500);
+}
+
+.photo-upload-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 1rem;
+}
+
+.photo-upload-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.photo-upload-preview-wrap {
+  position: relative;
+  aspect-ratio: 4/3;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--gray-200);
+}
+
+.photo-upload-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-upload-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: var(--gray-500);
+}
+
+.photo-upload-progress-wrap {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--gray-300);
+}
+
+.photo-upload-progress-bar {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.2s ease;
+}
+
+.photo-upload-error-text {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.25rem;
+  font-size: 0.75rem;
+  color: white;
+  background: rgba(239, 68, 68, 0.9);
+}
+
+.photo-upload-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.photo-upload-btn {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--gray-300);
+  background: white;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.photo-upload-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.photo-upload-btn.retry {
+  color: var(--primary);
+}
+
+.photo-upload-btn.delete {
+  color: var(--error);
+}
+
+.photo-upload-btn.delete:hover {
+  border-color: var(--error);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* My Listings Dashboard (F14, F20) */
+.my-listings-dashboard {
+  max-width: 720px;
+}
+
+.my-listings-dashboard h2,
+.my-listings-heading {
+  margin: 0 0 1.25rem;
+  font-size: 1.75rem;
+  color: var(--gray-900);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.my-listings-heading-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--primary);
+}
+
+.my-listings-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.my-listings-tab {
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  border: 2px solid var(--gray-200);
+  background: white;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.my-listings-tab:hover {
+  border-color: var(--gray-300);
+  color: var(--gray-800);
+}
+
+.my-listings-tab.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
+.my-listings-loading {
+  margin: 2rem 0;
+  text-align: center;
+  color: var(--gray-600);
+}
+
+.my-listings-empty {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  background: var(--gray-50);
+  border-radius: 16px;
+  border: 2px dashed var(--gray-200);
+}
+
+.my-listings-empty-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.my-listings-empty-hint {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--gray-500);
+}
+
+.my-listings-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.my-listings-card {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  background: white;
+  border: 2px solid var(--gray-200);
+  border-radius: 12px;
+  align-items: start;
+}
+
+.my-listings-card-image {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--gray-100);
+}
+
+.my-listings-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.my-listings-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  color: var(--gray-500);
+}
+
+.my-listings-card-body {
+  min-width: 0;
+}
+
+.my-listings-card-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  line-height: 1.3;
+}
+
+.my-listings-card-price {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.my-listings-card-meta {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--gray-500);
+}
+
+.my-listings-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.my-listings-btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--gray-300);
+  background: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.my-listings-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.my-listings-btn.sold {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.my-listings-btn.sold:hover:not(:disabled) {
+  background: var(--success);
+  color: white;
+}
+
+.my-listings-btn.danger {
+  color: var(--error);
+}
+
+.my-listings-btn.danger:hover:not(:disabled) {
+  border-color: var(--error);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.my-listings-badge {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gray-600);
+}
+
+.my-listings-badge.sold {
+  color: var(--success);
+}
+
+.my-listings-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.my-listings-page-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 2px solid var(--gray-200);
+  background: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.my-listings-page-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.my-listings-page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.my-listings-page-info {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+
+/* Mark as sold modal (F20) */
+.my-listings-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.my-listings-modal {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: var(--shadow-xl);
+}
+
+.my-listings-modal h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
+
+.my-listings-modal-title {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  color: var(--gray-600);
+}
+
+.my-listings-modal label {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
 }

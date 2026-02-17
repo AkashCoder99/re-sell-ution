@@ -34,6 +34,8 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 const mockUsers: Record<string, PublicUser & { password: string }> = {}
 let mockTokenStore = ''
 const mockPasswordResetOtps: Record<string, { otp: string; expiresAt: number }> = {}
+const mockPasswordResetLastRequest: Record<string, number> = {}
+const MOCK_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes
 
 function mockDelay(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 400))
@@ -193,6 +195,13 @@ async function mockAPI<TResponse>(path: string, options: RequestInit): Promise<T
       return { message: 'If an account exists, an OTP has been sent to the registered email' } as TResponse
     }
 
+    const lastRequest = mockPasswordResetLastRequest[email]
+    if (lastRequest && Date.now() - lastRequest < MOCK_COOLDOWN_MS) {
+      const waitMins = Math.max(1, Math.ceil((MOCK_COOLDOWN_MS - (Date.now() - lastRequest)) / 60000))
+      throw new Error(`Please wait ${waitMins} more minute(s) before requesting another reset code`)
+    }
+
+    mockPasswordResetLastRequest[email] = Date.now()
     const otp = String(Math.floor(100000 + Math.random() * 900000))
     mockPasswordResetOtps[email] = {
       otp,

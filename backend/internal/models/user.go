@@ -273,6 +273,34 @@ func (s UserStore) UpdatePasswordHashByID(ctx context.Context, userID, passwordH
 	return nil
 }
 
+// GetLastPasswordResetRequestTime returns the created_at of the most recent password
+// reset OTP for the user, if any exists within the cooldown window. Used to enforce
+// cooldown and show minutes remaining.
+func (s UserStore) GetLastPasswordResetRequestTime(ctx context.Context, userID string, cooldownMinutes int) (time.Time, bool, error) {
+	if cooldownMinutes <= 0 {
+		return time.Time{}, false, nil
+	}
+
+	query := `
+		SELECT created_at
+		FROM password_reset_otps
+		WHERE user_id = $1
+		  AND created_at > NOW() - INTERVAL '1 minute' * $2
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	var createdAt time.Time
+	err := s.DB.QueryRowContext(ctx, query, userID, cooldownMinutes).Scan(&createdAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return time.Time{}, false, nil
+		}
+		return time.Time{}, false, err
+	}
+	return createdAt, true, nil
+}
+
 func (s UserStore) InvalidateActivePasswordResetOTPsByUserID(ctx context.Context, userID string) error {
 	query := `
 		UPDATE password_reset_otps

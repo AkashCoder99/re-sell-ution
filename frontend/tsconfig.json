@@ -10,8 +10,7 @@
     "skipLibCheck": true,
     "allowJs": false,
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "types": ["vite/client"]
+    "isolatedModules": true
   },
   "include": ["src"]
 }
