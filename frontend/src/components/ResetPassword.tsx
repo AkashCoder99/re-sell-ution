@@ -1,6 +1,7 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { useState } from 'react'
 import { confirmPasswordReset } from '../api/auth'
+import { logError, logInfo } from '../utils/logger'
 import { isValidEmail } from '../utils/validation'
 
 interface ResetPasswordProps {
@@ -77,11 +78,16 @@ export default function ResetPassword({ onBack }: ResetPasswordProps) {
         new_password: newPassword
       })
       setMessage(response.message || 'Password reset successful. You can now log in.')
+      logInfo('auth.password_reset.confirm.success', { email: email.trim() })
       setEmail('')
       setOtp('')
       setNewPassword('')
       setConfirmPassword('')
     } catch (err: unknown) {
+      logError('auth.password_reset.confirm.failed', {
+        email: email.trim(),
+        error: err instanceof Error ? err.message : 'unknown error'
+      })
       setError(err instanceof Error ? err.message : 'Failed to reset password')
     } finally {
       setLoading(false)

@@ -7,6 +7,7 @@ import CitySelector from './components/CitySelector'
 import ProfileEdit from './components/ProfileEdit'
 import ForgotPassword from './components/ForgotPassword'
 import ResetPassword from './components/ResetPassword'
+import { logError, logInfo } from './utils/logger'
 import CreateListing from './components/CreateListing'
 import MyListingsDashboard from './components/MyListingsDashboard'
 import {
@@ -73,13 +74,17 @@ export default function App() {
 
     getMe(token)
       .then((data) => {
+        logInfo('auth.session.restore.success', { user_id: data.user.id })
         setUser(data.user)
         // If user doesn't have a city set, prompt them to select one
         if (!data.user.city) {
           setShowCitySelector(true)
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        logError('auth.session.restore.failed', {
+          error: error instanceof Error ? error.message : 'unknown error'
+        })
         localStorage.removeItem('auth_token')
         setToken('')
         setUser(null)
@@ -97,6 +102,7 @@ export default function App() {
       setToken(data.token)
       setUser(data.user)
       setMessage('Login successful.')
+      logInfo('auth.login.success', { user_id: data.user.id, email: data.user.email })
       setLoginForm(defaultLoginForm)
       
       // Check if user needs to select city
@@ -106,6 +112,7 @@ export default function App() {
         setViewMode('profile')
       }
     } catch (error: unknown) {
+      logError('auth.login.failed', { error: error instanceof Error ? error.message : 'unknown error' })
       setMessage(error instanceof Error ? error.message : 'Login failed')
     } finally {
       setLoading(false)
@@ -123,11 +130,13 @@ export default function App() {
       setToken(data.token)
       setUser(data.user)
       setMessage('Account created and logged in.')
+      logInfo('auth.register.success', { user_id: data.user.id, email: data.user.email })
       setRegisterForm(defaultRegisterForm)
       
       // Prompt new user to select city
       setShowCitySelector(true)
     } catch (error: unknown) {
+      logError('auth.register.failed', { error: error instanceof Error ? error.message : 'unknown error' })
       setMessage(error instanceof Error ? error.message : 'Registration failed')
     } finally {
       setLoading(false)
@@ -152,7 +161,9 @@ export default function App() {
         await logout(token)
       }
       setMessage('Logged out.')
+      logInfo('auth.logout.success')
     } catch (error: unknown) {
+      logError('auth.logout.failed', { error: error instanceof Error ? error.message : 'unknown error' })
       setMessage(
         error instanceof Error
           ? `Logout failed on server; signed out locally: ${error.message}`
@@ -184,6 +195,7 @@ export default function App() {
     setShowCitySelector(false)
     setViewMode('profile')
     setMessage(`City updated to ${city}`)
+    logInfo('profile.city.updated', { city })
   }
 
   async function handleProfileUpdate(updates: UpdateProfileRequest) {
@@ -200,6 +212,7 @@ export default function App() {
     setUser(data.user)
     setViewMode('profile')
     setMessage('Profile updated successfully')
+    logInfo('profile.updated')
   }
 
   function onLoginEmailChange(event: ChangeEvent<HTMLInputElement>) {

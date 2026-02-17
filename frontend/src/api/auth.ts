@@ -1,4 +1,5 @@
 import type { PublicUser, UpdateProfileRequest } from '../types/user'
+import { logDebug, logError, logInfo } from '../utils/logger'
 
 export interface AuthPayload {
   token: string
@@ -49,8 +50,13 @@ function toPublicMockUser(user: PublicUser & { password: string }): PublicUser {
 async function request<TResponse>(path: string, options: RequestInit = {}): Promise<TResponse> {
   // Use mock API for frontend-only demo
   if (USE_MOCK) {
+    logDebug('api.mock.request', { path, method: options.method || 'GET' })
     return mockAPI<TResponse>(path, options)
   }
+
+  const method = options.method || 'GET'
+  const startedAt = performance.now()
+  logDebug('api.request.start', { path, method })
 
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {
@@ -61,6 +67,7 @@ async function request<TResponse>(path: string, options: RequestInit = {}): Prom
   })
 
   const data: unknown = await response.json().catch(() => ({}))
+  const durationMs = Math.round(performance.now() - startedAt)
 
   if (!response.ok) {
     const message =
@@ -71,9 +78,17 @@ async function request<TResponse>(path: string, options: RequestInit = {}): Prom
         ? (data as { error: string }).error
         : 'Request failed'
 
+    logError('api.request.failed', {
+      path,
+      method,
+      status: response.status,
+      duration_ms: durationMs,
+      error: message
+    })
     throw new Error(message)
   }
 
+  logInfo('api.request.success', { path, method, status: response.status, duration_ms: durationMs })
   return data as TResponse
 }
 

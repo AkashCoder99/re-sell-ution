@@ -1,6 +1,7 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { useState } from 'react'
 import { requestPasswordReset } from '../api/auth'
+import { logError, logInfo } from '../utils/logger'
 import { isValidEmail } from '../utils/validation'
 
 interface ForgotPasswordProps {
@@ -35,7 +36,12 @@ export default function ForgotPassword({ onBack, onGoToReset }: ForgotPasswordPr
     try {
       const response = await requestPasswordReset(email)
       setMessage(response.message || 'OTP sent to your email. Please check your inbox.')
+      logInfo('auth.password_reset.request.success', { email })
     } catch (err: unknown) {
+      logError('auth.password_reset.request.failed', {
+        email,
+        error: err instanceof Error ? err.message : 'unknown error'
+      })
       setError(err instanceof Error ? err.message : 'Failed to send reset email')
     } finally {
       setLoading(false)
