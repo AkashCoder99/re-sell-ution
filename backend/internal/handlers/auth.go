@@ -120,6 +120,7 @@ func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create user"})
 		return
 	}
+	log.Printf("auth.register.success email=%s user_id=%s", createdUser.Email, createdUser.ID)
 
 	token, err := h.createToken(createdUser.ID)
 	if err != nil {
@@ -151,14 +152,17 @@ func (h AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.Users.FindByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, models.ErrUserNotFound) {
+			log.Printf("auth.login.failed email=%s reason=user_not_found", req.Email)
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid email or password"})
 			return
 		}
+		log.Printf("auth.login.failed email=%s reason=fetch_error err=%v", req.Email, err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to fetch user"})
 		return
 	}
 
 	if !utils.VerifyPassword(req.Password, user.PasswordHash) {
+		log.Printf("auth.login.failed email=%s reason=invalid_password", req.Email)
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid email or password"})
 		return
 	}
@@ -170,6 +174,7 @@ func (h AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, authResponse{Token: token, User: toPublicUser(user)})
+	log.Printf("auth.login.success email=%s user_id=%s", user.Email, user.ID)
 }
 
 func (h AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
@@ -227,7 +232,7 @@ func (h AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	_, ok := middleware.UserIDFromContext(r.Context())
+	userID, ok := middleware.UserIDFromContext(r.Context())
 	if !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
@@ -236,6 +241,7 @@ func (h AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	// Current auth is stateless JWT, so logout is client token disposal.
 	// Keeping this endpoint enables forward compatibility with token revocation.
 	writeJSON(w, http.StatusOK, map[string]string{"message": "logged out"})
+	log.Printf("auth.logout.success user_id=%s", userID)
 }
 
 func (h AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
@@ -254,9 +260,11 @@ func (h AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request
 	user, err := h.Users.FindByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, models.ErrUserNotFound) {
+			log.Printf("auth.password_reset.request ignored email=%s reason=user_not_found", req.Email)
 			writeJSON(w, http.StatusOK, map[string]string{"message": "If an account exists, an OTP has been sent to the registered email"})
 			return
 		}
+		log.Printf("auth.password_reset.request failed email=%s err=%v", req.Email, err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
 		return
 	}
@@ -303,6 +311,7 @@ func (h AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "If an account exists, an OTP has been sent to the registered email"})
+	log.Printf("auth.password_reset.request success email=%s user_id=%s", req.Email, user.ID)
 }
 
 func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
@@ -328,18 +337,22 @@ func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request
 	user, err := h.Users.FindByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, models.ErrUserNotFound) {
+			log.Printf("auth.password_reset.confirm failed email=%s reason=user_not_found", req.Email)
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired otp"})
 			return
 		}
+		log.Printf("auth.password_reset.confirm failed email=%s reason=fetch_error err=%v", req.Email, err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
 		return
 	}
 
 	if err := h.Users.ConsumePasswordResetOTP(r.Context(), user.ID, passwordResetOTPHash(req.OTP)); err != nil {
 		if errors.Is(err, models.ErrPasswordResetOTPInvalid) {
+			log.Printf("auth.password_reset.confirm failed email=%s user_id=%s reason=invalid_otp", req.Email, user.ID)
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired otp"})
 			return
 		}
+		log.Printf("auth.password_reset.confirm failed email=%s user_id=%s reason=consume_error err=%v", req.Email, user.ID, err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
 		return
 	}
@@ -355,6 +368,7 @@ func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired otp"})
 			return
 		}
+		log.Printf("auth.password_reset.confirm failed email=%s user_id=%s reason=update_error err=%v", req.Email, user.ID, err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
 		return
 	}
@@ -365,6 +379,7 @@ func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "password reset successful"})
+	log.Printf("auth.password_reset.confirm success email=%s user_id=%s", req.Email, user.ID)
 }
 
 func (h AuthHandler) createToken(userID string) (string, error) {

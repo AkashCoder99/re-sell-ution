@@ -66,7 +66,7 @@ func main() {
 	mux.HandleFunc("PUT /api/v1/users/me", middleware.Auth(tokenManager, authHandler.UpdateProfile))
 	mux.HandleFunc("POST /api/v1/auth/logout", middleware.Auth(tokenManager, authHandler.Logout))
 
-	handler := withCORS(cfg.CorsOrigin, mux)
+	handler := withRequestLogging(withCORS(cfg.CorsOrigin, mux))
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -104,6 +104,38 @@ func withCORS(allowedOriginsCSV string, next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(w, r)
+	})
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (r *statusRecorder) WriteHeader(statusCode int) {
+	r.statusCode = statusCode
+	r.ResponseWriter.WriteHeader(statusCode)
+}
+
+func withRequestLogging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		recorder := &statusRecorder{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK,
+		}
+
+		next.ServeHTTP(recorder, r)
+
+		log.Printf(
+			"%s %s -> %d (%s) ip=%s ua=%q",
+			r.Method,
+			r.URL.Path,
+			recorder.statusCode,
+			time.Since(start).Round(time.Millisecond),
+			r.RemoteAddr,
+			r.UserAgent(),
+		)
 	})
 }
 
