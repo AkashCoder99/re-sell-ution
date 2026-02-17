@@ -41,13 +41,14 @@ func main() {
 	}
 
 	authHandler := handlers.AuthHandler{
-		Users:                      userStore,
-		TokenManager:               tokenManager,
-		EmailSender:                emailSender,
-		TokenExpiryHours:           cfg.TokenExpiryHours,
-		PasswordResetExpiryMinutes: cfg.PasswordResetExpiryMinutes,
-		PasswordResetOTPDigits:     cfg.PasswordResetOTPDigits,
-		PasswordResetMaxAttempts:   cfg.PasswordResetMaxAttempts,
+		Users:                        userStore,
+		TokenManager:                 tokenManager,
+		EmailSender:                  emailSender,
+		TokenExpiryHours:             cfg.TokenExpiryHours,
+		PasswordResetExpiryMinutes:   cfg.PasswordResetExpiryMinutes,
+		PasswordResetCooldownMinutes: cfg.PasswordResetCooldownMinutes,
+		PasswordResetOTPDigits:       cfg.PasswordResetOTPDigits,
+		PasswordResetMaxAttempts:     cfg.PasswordResetMaxAttempts,
 	}
 
 	mux := http.NewServeMux()

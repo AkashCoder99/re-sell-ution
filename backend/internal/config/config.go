@@ -14,6 +14,7 @@ type Config struct {
 	TokenSecret                string
 	TokenExpiryHours           int
 	PasswordResetExpiryMinutes int
+	PasswordResetCooldownMinutes int
 	PasswordResetOTPDigits     int
 	PasswordResetMaxAttempts   int
 	SMTPHost                   string
@@ -44,6 +45,14 @@ func Load() (Config, error) {
 		}
 		passwordResetExpiryMinutes = parsed
 	}
+	passwordResetCooldownMinutes := 5
+	if raw := os.Getenv("PASSWORD_RESET_COOLDOWN_MINUTES"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return Config{}, err
+		}
+		passwordResetCooldownMinutes = parsed
+	}
 	passwordResetOTPDigits := 6
 	if raw := os.Getenv("PASSWORD_RESET_OTP_DIGITS"); raw != "" {
 		parsed, err := strconv.Atoi(raw)
@@ -67,6 +76,7 @@ func Load() (Config, error) {
 		TokenSecret:                os.Getenv("TOKEN_SECRET"),
 		TokenExpiryHours:           expiryHours,
 		PasswordResetExpiryMinutes: passwordResetExpiryMinutes,
+		PasswordResetCooldownMinutes: passwordResetCooldownMinutes,
 		PasswordResetOTPDigits:     passwordResetOTPDigits,
 		PasswordResetMaxAttempts:   passwordResetMaxAttempts,
 		SMTPHost:                   os.Getenv("SMTP_HOST"),

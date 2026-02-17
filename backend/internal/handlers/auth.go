@@ -24,10 +24,11 @@ type AuthHandler struct {
 	Users                      models.UserStore
 	TokenManager               utils.TokenManager
 	EmailSender                utils.EmailSender
-	TokenExpiryHours           int
-	PasswordResetExpiryMinutes int
-	PasswordResetOTPDigits     int
-	PasswordResetMaxAttempts   int
+	TokenExpiryHours             int
+	PasswordResetExpiryMinutes   int
+	PasswordResetCooldownMinutes int
+	PasswordResetOTPDigits       int
+	PasswordResetMaxAttempts     int
 }
 
 type registerRequest struct {
@@ -261,6 +262,27 @@ func (h AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	cooldown := h.passwordResetCooldownMinutes()
+	if cooldown > 0 {
+		lastRequestAt, recent, err := h.Users.GetLastPasswordResetRequestTime(r.Context(), user.ID, cooldown)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
+			return
+		}
+		if recent {
+			cooldownEndsAt := lastRequestAt.Add(time.Duration(cooldown) * time.Minute)
+			minutesLeft := int(time.Until(cooldownEndsAt).Minutes())
+			if minutesLeft < 1 {
+				minutesLeft = 1
+			}
+			writeJSON(w, http.StatusTooManyRequests, map[string]any{
+				"error":                fmt.Sprintf("Please wait %d more minute(s) before requesting another reset code", minutesLeft),
+				"retry_after_minutes": minutesLeft,
+			})
+			return
+		}
+	}
+
 	otp, err := generateNumericOTP(h.passwordResetOTPDigits())
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
@@ -395,6 +417,13 @@ func generateNumericOTP(length int) (string, error) {
 func passwordResetOTPHash(otp string) string {
 	sum := sha256.Sum256([]byte(otp))
 	return hex.EncodeToString(sum[:])
+}
+
+func (h AuthHandler) passwordResetCooldownMinutes() int {
+	if h.PasswordResetCooldownMinutes < 0 {
+		return 0
+	}
+	return h.PasswordResetCooldownMinutes
 }
 
 func (h AuthHandler) passwordResetOTPDigits() int {
