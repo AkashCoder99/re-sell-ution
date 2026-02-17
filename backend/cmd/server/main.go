@@ -11,6 +11,7 @@ import (
 	"resellution/backend/internal/handlers"
 	"resellution/backend/internal/middleware"
 	"resellution/backend/internal/models"
+	"resellution/backend/internal/observability"
 	"resellution/backend/internal/utils"
 )
 
@@ -53,11 +54,15 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	metrics := observability.NewMetrics()
+	logger := observability.NewLogger()
+
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
 	})
+	mux.HandleFunc("GET /metrics", observability.MetricsHandler(metrics))
 	mux.HandleFunc("POST /api/v1/auth/register", authHandler.Register)
 	mux.HandleFunc("POST /api/v1/auth/login", authHandler.Login)
 	mux.HandleFunc("POST /api/v1/auth/password/reset/request", authHandler.RequestPasswordReset)
@@ -67,7 +72,7 @@ func main() {
 	mux.HandleFunc("PUT /api/v1/users/me", middleware.Auth(tokenManager, authHandler.UpdateProfile))
 	mux.HandleFunc("POST /api/v1/auth/logout", middleware.Auth(tokenManager, authHandler.Logout))
 
-	handler := withRequestLogging(withCORS(cfg.CorsOrigin, mux))
+	handler := observability.RequestMetrics(metrics, logger, withCORS(cfg.CorsOrigin, mux))
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -77,7 +82,7 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	log.Printf("backend running on http://localhost:%s", cfg.Port)
+	logger.Info("backend started", map[string]any{"port": cfg.Port, "url": "http://localhost:" + cfg.Port})
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server error: %v", err)
 	}
@@ -105,38 +110,6 @@ func withCORS(allowedOriginsCSV string, next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(w, r)
-	})
-}
-
-type statusRecorder struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func (r *statusRecorder) WriteHeader(statusCode int) {
-	r.statusCode = statusCode
-	r.ResponseWriter.WriteHeader(statusCode)
-}
-
-func withRequestLogging(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		recorder := &statusRecorder{
-			ResponseWriter: w,
-			statusCode:     http.StatusOK,
-		}
-
-		next.ServeHTTP(recorder, r)
-
-		log.Printf(
-			"%s %s -> %d (%s) ip=%s ua=%q",
-			r.Method,
-			r.URL.Path,
-			recorder.statusCode,
-			time.Since(start).Round(time.Millisecond),
-			r.RemoteAddr,
-			r.UserAgent(),
-		)
 	})
 }
 
