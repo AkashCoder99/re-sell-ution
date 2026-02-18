@@ -2,7 +2,7 @@
 
 A modern local marketplace platform where users can buy and sell pre-owned items in their city.
 
-## 🚀 Project Description
+## Project Description
 ReSellution is a full-stack marketplace application similar to OLX, built with modern web technologies. The platform enables users to:
 - Create accounts and manage profiles
 - Select their city for localized listings
@@ -10,13 +10,13 @@ ReSellution is a full-stack marketplace application similar to OLX, built with m
 - Chat with buyers/sellers (planned)
 - Save favorite listings (planned)
 
-## 📦 Tech Stack
+## Tech Stack
 - **Frontend**: React 18 + TypeScript + Vite
 - **Backend**: Go 1.26 + PostgreSQL 16
 - **Authentication**: JWT tokens + bcrypt password hashing
 - **Styling**: Modern CSS with glassmorphism and animations
 
-## 👥 Team Members
+## Team Members
 - Front-End Engineers
   - Krishna Chaitanya Kolipakula
   - Tanmayee Maram
@@ -27,7 +27,7 @@ ReSellution is a full-stack marketplace application similar to OLX, built with m
 ## Folder Structure
 - `frontend/`: React + TypeScript + Vite app
 - `backend/`: Go REST API
-- `backend/migrations/0001_init.sql`: PostgreSQL schema
+- `backend/migrations`: PostgreSQL schema
 
 ## Database Design (PostgreSQL)
 The schema supports current auth plus future OLX-style modules.
@@ -102,54 +102,6 @@ echo "VITE_USE_MOCK=true" > .env.local
 npm run dev
 ```
 This enables a mock API for testing frontend features independently.
-
-## ✨ Features Implemented (Sprint 1)
-
-### Frontend
-- ✅ **F1**: User Registration with validation
-- ✅ **F2**: User Login with password visibility toggle
-- ✅ **F3**: Forgot Password UI (backend pending)
-- ✅ **F4**: User Logout
-- ✅ **F5**: City Selection with search filter
-- ✅ **F6**: Profile View and Edit with character counter
-
-### Backend
-- ✅ **B1**: Auth Service (signup/login/logout)
-- ✅ **B3**: Database Schema Design
-- ✅ **B4**: User Profile APIs (GET/PUT /users/me)
-
-## 📡 Auth APIs Implemented
-
-### `POST /api/v1/auth/register`
-Body:
-
-```json
-{
-  "full_name": "Akash Singh",
-  "email": "akash@example.com",
-  "password": "strongpass123"
-}
-```
-
-### `POST /api/v1/auth/login`
-Body:
-
-```json
-{
-  "email": "akash@example.com",
-  "password": "strongpass123"
-}
-```
-
-### `GET /api/v1/auth/me`
-Header:
-
-```text
-Authorization: Bearer <token>
-```
-
-### `GET /health`
-Basic health check endpoint.
 
 ## Notes
 - ESLint is configured in `frontend/eslint.config.js` with TypeScript + React Hooks rules.
