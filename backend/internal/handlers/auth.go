@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"net/mail"
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 
@@ -73,6 +75,14 @@ type updateProfileRequest struct {
 	PhotoURL *string `json:"photo_url"`
 }
 
+const (
+	maxEmailLength    = 254
+	minPasswordLength = 8
+	maxPasswordLength = 72
+	minFullNameLength = 2
+	maxFullNameLength = 100
+)
+
 func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -88,8 +98,16 @@ func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "email, password, and full_name are required"})
 		return
 	}
-	if len(req.Password) < 8 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "password must be at least 8 characters"})
+	if err := validateEmail(req.Email); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if err := validateFullName(req.FullName); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if err := validatePassword(req.Password); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -147,6 +165,14 @@ func (h AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	if req.Email == "" || req.Password == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "email and password are required"})
+		return
+	}
+	if err := validateEmail(req.Email); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if len(req.Password) > maxPasswordLength {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("password must not exceed %d characters", maxPasswordLength)})
 		return
 	}
 
@@ -351,8 +377,12 @@ func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "email, otp, and new_password are required"})
 		return
 	}
-	if len(req.NewPassword) < 8 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "new_password must be at least 8 characters"})
+	if err := validateEmail(req.Email); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if err := validatePassword(req.NewPassword); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": strings.Replace(err.Error(), "password", "new_password", 1)})
 		return
 	}
 
@@ -470,4 +500,53 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func validateEmail(email string) error {
+	if len(email) > maxEmailLength {
+		return fmt.Errorf("email must not exceed %d characters", maxEmailLength)
+	}
+
+	parsed, err := mail.ParseAddress(email)
+	if err != nil || parsed.Address != email || strings.Count(email, "@") != 1 {
+		return errors.New("email format is invalid")
+	}
+
+	return nil
+}
+
+func validateFullName(fullName string) error {
+	if len(fullName) < minFullNameLength {
+		return fmt.Errorf("full_name must be at least %d characters", minFullNameLength)
+	}
+	if len(fullName) > maxFullNameLength {
+		return fmt.Errorf("full_name must not exceed %d characters", maxFullNameLength)
+	}
+
+	return nil
+}
+
+func validatePassword(password string) error {
+	if len(password) < minPasswordLength {
+		return fmt.Errorf("password must be at least %d characters", minPasswordLength)
+	}
+	if len(password) > maxPasswordLength {
+		return fmt.Errorf("password must not exceed %d characters", maxPasswordLength)
+	}
+
+	var hasLetter bool
+	var hasDigit bool
+	for _, r := range password {
+		if unicode.IsLetter(r) {
+			hasLetter = true
+		}
+		if unicode.IsDigit(r) {
+			hasDigit = true
+		}
+	}
+	if !hasLetter || !hasDigit {
+		return errors.New("password must include at least one letter and one number")
+	}
+
+	return nil
 }
