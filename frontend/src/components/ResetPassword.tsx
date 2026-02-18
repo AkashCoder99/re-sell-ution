@@ -1,6 +1,7 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { useState } from 'react'
 import { confirmPasswordReset } from '../api/auth'
+import { IconEye, IconEyeOff } from './Icons'
 import { logError, logInfo } from '../utils/logger'
 import { isValidEmail } from '../utils/validation'
 
@@ -13,6 +14,8 @@ export default function ResetPassword({ onBack }: ResetPasswordProps) {
   const [otp, setOtp] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -115,12 +118,54 @@ export default function ResetPassword({ onBack }: ResetPasswordProps) {
 
         <label>
           New password
-          <input type="password" value={newPassword} onChange={onNewPasswordChange} minLength={8} required />
+          <div className="auth-password-wrap">
+            <input
+              type={showNewPassword ? 'text' : 'password'}
+              className="auth-form-input"
+              value={newPassword}
+              onChange={onNewPasswordChange}
+              minLength={8}
+              required
+            />
+            <button
+              type="button"
+              className="auth-password-toggle"
+              onClick={() => setShowNewPassword(!showNewPassword)}
+              aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+            >
+              {showNewPassword ? (
+                <IconEyeOff className="auth-password-toggle-icon" aria-hidden />
+              ) : (
+                <IconEye className="auth-password-toggle-icon" aria-hidden />
+              )}
+            </button>
+          </div>
         </label>
 
         <label>
           Confirm new password
-          <input type="password" value={confirmPassword} onChange={onConfirmPasswordChange} minLength={8} required />
+          <div className="auth-password-wrap">
+            <input
+              type={showConfirmPassword ? 'text' : 'password'}
+              className="auth-form-input"
+              value={confirmPassword}
+              onChange={onConfirmPasswordChange}
+              minLength={8}
+              required
+            />
+            <button
+              type="button"
+              className="auth-password-toggle"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+            >
+              {showConfirmPassword ? (
+                <IconEyeOff className="auth-password-toggle-icon" aria-hidden />
+              ) : (
+                <IconEye className="auth-password-toggle-icon" aria-hidden />
+              )}
+            </button>
+          </div>
         </label>
 
         <div className="button-group">
