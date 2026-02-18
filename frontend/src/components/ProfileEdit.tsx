@@ -58,7 +58,7 @@ export default function ProfileEdit({ user, onUpdate, onCancel }: ProfileEditPro
             id="profile-full_name"
             type="text"
             name="full_name"
-            value={formData.full_name}
+            value={formData.full_name ?? ''}
             onChange={handleChange}
             className="profile-edit-input"
             required
@@ -75,7 +75,7 @@ export default function ProfileEdit({ user, onUpdate, onCancel }: ProfileEditPro
             id="profile-city"
             type="text"
             name="city"
-            value={formData.city}
+            value={formData.city ?? ''}
             onChange={handleChange}
             className="profile-edit-input"
             placeholder="e.g., New York"
@@ -90,7 +90,7 @@ export default function ProfileEdit({ user, onUpdate, onCancel }: ProfileEditPro
           <textarea
             id="profile-bio"
             name="bio"
-            value={formData.bio}
+            value={formData.bio ?? ''}
             onChange={handleChange}
             className="profile-edit-textarea"
             placeholder="Tell us about yourself"
@@ -99,7 +99,7 @@ export default function ProfileEdit({ user, onUpdate, onCancel }: ProfileEditPro
             aria-describedby="profile-bio-count"
           />
           <span id="profile-bio-count" className="profile-edit-char-count">
-            {formData.bio.length}/500 characters
+            {(formData.bio ?? '').length}/500 characters
           </span>
         </div>
 
@@ -112,7 +112,7 @@ export default function ProfileEdit({ user, onUpdate, onCancel }: ProfileEditPro
             id="profile-photo_url"
             type="url"
             name="photo_url"
-            value={formData.photo_url}
+            value={formData.photo_url ?? ''}
             onChange={handleChange}
             className="profile-edit-input"
             placeholder="https://example.com/photo.jpg"

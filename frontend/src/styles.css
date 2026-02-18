@@ -344,7 +344,7 @@ h1 {
 .mode-toggle button.active {
   background: white;
   color: var(--primary);
-  box-s1.25rem;
+  box-shadow: var(--shadow-sm);
 }
 
 label {
@@ -353,16 +353,7 @@ label {
   font-size: 0.875rem;
   color: var(--gray-700);
   font-weight: 600;
-  letter-spacing: 0.01emem 0.75rem;
-  background: #f0fdf4;
-  border: 1px solid #86efac;
-  border-r2px solid var(--gray-200);
-  border-radius: 12px;
-  padding: 0.875rem 1rem;
-  font-size: 1rem;
-  background: white;
-  transition: all 0.2s ease;
-  font-family: inherit;
+  letter-spacing: 0.01em;
 }
 
 input:hover {
