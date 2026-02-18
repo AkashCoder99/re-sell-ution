@@ -63,6 +63,8 @@ export default function App() {
   const [showRegisterPassword, setShowRegisterPassword] = useState<boolean>(false)
   const [listingsRefresh, setListingsRefresh] = useState(0)
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user])
+  const isWideView =
+    isAuthenticated && (viewMode === 'create-listing' || viewMode === 'my-listings')
 
   useEffect(() => {
     if (!token) {
@@ -241,14 +243,41 @@ export default function App() {
 
   return (
     <main className="auth-page">
-      <section className="auth-card">
+      <section className={`auth-card ${isWideView ? 'auth-card-wide' : ''}`}>
         <h1>🛍️ ReSellution</h1>
         <p className="subtitle">Your local marketplace platform</p>
 
         {message && <p className="message">{message}</p>}
 
         {/* City Selector - shown after signup/login if no city set */}
-        {isAuthenticated && showCitySelector ? (
+        {isAuthenticated && viewMode === 'create-listing' && user ? (
+          <CreateListing
+            token={token}
+            userCity={user.city || ''}
+            onSuccess={() => {
+              setViewMode('profile')
+              setListingsRefresh((r) => r + 1)
+              setMessage('Listing created successfully.')
+            }}
+            onCancel={() => setViewMode('profile')}
+          />
+        ) : isAuthenticated && viewMode === 'my-listings' && user ? (
+          <>
+            <button
+              type="button"
+              className="back-link-btn"
+              onClick={() => setViewMode('profile')}
+            >
+              <IconBack className="back-link-icon" aria-hidden />
+              <span>Back to Profile</span>
+            </button>
+            <MyListingsDashboard
+              token={token}
+              refreshTrigger={listingsRefresh}
+              onMarkSold={() => setListingsRefresh((r) => r + 1)}
+            />
+          </>
+        ) : isAuthenticated && showCitySelector ? (
           <CitySelector
             currentCity={user?.city}
             onCitySelected={handleCitySelected}
@@ -264,7 +293,7 @@ export default function App() {
             onUpdate={handleProfileUpdate}
             onCancel={() => setViewMode('profile')}
           />
-        ) : isAuthenticated && user ? (
+        ) : isAuthenticated && viewMode === 'profile' && user ? (
           /* Profile View */
           <div className="profile">
             {token === PREVIEW_TOKEN && (
@@ -324,33 +353,6 @@ export default function App() {
               </button>
             </div>
           </div>
-        ) : isAuthenticated && viewMode === 'create-listing' && user ? (
-          <CreateListing
-            token={token}
-            userCity={user.city || ''}
-            onSuccess={() => {
-              setViewMode('profile')
-              setListingsRefresh((r) => r + 1)
-              setMessage('Listing created successfully.')
-            }}
-            onCancel={() => setViewMode('profile')}
-          />
-        ) : isAuthenticated && viewMode === 'my-listings' ? (
-          <>
-            <button
-              type="button"
-              className="back-link-btn"
-              onClick={() => setViewMode('profile')}
-            >
-              <IconBack className="back-link-icon" aria-hidden />
-              <span>Back to Profile</span>
-            </button>
-            <MyListingsDashboard
-              token={token}
-              refreshTrigger={listingsRefresh}
-              onMarkSold={() => setListingsRefresh((r) => r + 1)}
-            />
-          </>
         ) : viewMode === 'forgot-password' ? (
           /* Forgot Password */
           <ForgotPassword onBack={() => setViewMode('login')} onGoToReset={() => setViewMode('reset-password')} />
