@@ -11,9 +11,11 @@ import (
 	"math/big"
 	"net/mail"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -81,6 +83,9 @@ const (
 	maxPasswordLength = 72
 	minFullNameLength = 2
 	maxFullNameLength = 100
+	maxCityLength     = 100
+	maxBioLength      = 500
+	maxPhotoURLLength = 2048
 )
 
 func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -237,8 +242,14 @@ func (h AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req updateProfileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+	if err := validateProfileUpdate(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -546,6 +557,55 @@ func validatePassword(password string) error {
 	}
 	if !hasLetter || !hasDigit {
 		return errors.New("password must include at least one letter and one number")
+	}
+
+	return nil
+}
+
+func validateProfileUpdate(req *updateProfileRequest) error {
+	if req.FullName == nil && req.City == nil && req.Bio == nil && req.PhotoURL == nil {
+		return errors.New("at least one profile field is required")
+	}
+
+	if req.FullName != nil {
+		trimmed := strings.TrimSpace(*req.FullName)
+		if err := validateFullName(trimmed); err != nil {
+			return err
+		}
+		*req.FullName = trimmed
+	}
+
+	if req.City != nil {
+		trimmed := strings.TrimSpace(*req.City)
+		if utf8.RuneCountInString(trimmed) > maxCityLength {
+			return fmt.Errorf("city must not exceed %d characters", maxCityLength)
+		}
+		*req.City = trimmed
+	}
+
+	if req.Bio != nil {
+		trimmed := strings.TrimSpace(*req.Bio)
+		if utf8.RuneCountInString(trimmed) > maxBioLength {
+			return fmt.Errorf("bio must not exceed %d characters", maxBioLength)
+		}
+		*req.Bio = trimmed
+	}
+
+	if req.PhotoURL != nil {
+		trimmed := strings.TrimSpace(*req.PhotoURL)
+		if trimmed != "" {
+			if len(trimmed) > maxPhotoURLLength {
+				return fmt.Errorf("photo_url must not exceed %d characters", maxPhotoURLLength)
+			}
+			parsed, err := url.ParseRequestURI(trimmed)
+			if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+				return errors.New("photo_url must be a valid absolute URL")
+			}
+			if parsed.Scheme != "http" && parsed.Scheme != "https" {
+				return errors.New("photo_url must start with http:// or https://")
+			}
+		}
+		*req.PhotoURL = trimmed
 	}
 
 	return nil

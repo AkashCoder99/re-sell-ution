@@ -212,11 +212,7 @@ func (s UserStore) UpdateProfile(ctx context.Context, userID string, u ProfileUp
 		user.City = strings.TrimSpace(*u.City)
 	}
 	if u.Bio != nil {
-		b := strings.TrimSpace(*u.Bio)
-		if len(b) > 500 {
-			b = b[:500]
-		}
-		user.Bio = b
+		user.Bio = strings.TrimSpace(*u.Bio)
 	}
 	if u.ProfileImageURL != nil {
 		user.ProfileImageURL = strings.TrimSpace(*u.ProfileImageURL)
