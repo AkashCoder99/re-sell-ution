@@ -13,6 +13,7 @@ migrate:
 	psql "$${DATABASE_URL}" -f migrations/0005_b5_constraints_indexes.sql
 	psql "$${DATABASE_URL}" -f migrations/0007_soft_delete_audit.sql
 	psql "$${DATABASE_URL}" -f migrations/0006_notifications.sql
+	psql "$${DATABASE_URL}" -f migrations/0008_updated_by.sql
 
 seed:
 	psql "$${DATABASE_URL}" -f seeds/001_categories.sql

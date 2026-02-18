@@ -198,7 +198,7 @@ type ProfileUpdate struct {
 	ProfileImageURL *string
 }
 
-func (s UserStore) UpdateProfile(ctx context.Context, userID string, u ProfileUpdate) (User, error) {
+func (s UserStore) UpdateProfile(ctx context.Context, userID string, updatedBy string, u ProfileUpdate) (User, error) {
 	user, err := s.FindByID(ctx, userID)
 	if err != nil {
 		return User{}, err
@@ -222,7 +222,7 @@ func (s UserStore) UpdateProfile(ctx context.Context, userID string, u ProfileUp
 
 	query := `
 		UPDATE users
-		SET full_name = $2, city = $3, bio = $4, profile_image_url = $5, updated_at = NOW()
+		SET full_name = $2, city = $3, bio = $4, profile_image_url = $5, updated_at = NOW(), updated_by = $6
 		WHERE id = $1
 		RETURNING created_at, updated_at
 	`
@@ -233,6 +233,7 @@ func (s UserStore) UpdateProfile(ctx context.Context, userID string, u ProfileUp
 		nullIfEmpty(user.City),
 		nullIfEmpty(user.Bio),
 		nullIfEmpty(user.ProfileImageURL),
+		updatedBy,
 	).Scan(&user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return User{}, err
@@ -248,15 +249,41 @@ func nullIfEmpty(s string) interface{} {
 	return s
 }
 
-func (s UserStore) UpdatePasswordHashByID(ctx context.Context, userID, passwordHash string) error {
+func (s UserStore) UpdatePasswordHashByID(ctx context.Context, userID, passwordHash, updatedBy string) error {
 	query := `
 		UPDATE users
-		SET password_hash = $2, updated_at = NOW()
+		SET password_hash = $2, updated_at = NOW(), updated_by = $3
 		WHERE id = $1
 		  AND deleted_at IS NULL
 	`
 
-	result, err := s.DB.ExecContext(ctx, query, userID, passwordHash)
+	result, err := s.DB.ExecContext(ctx, query, userID, passwordHash, updatedBy)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrUserNotFound
+	}
+
+	return nil
+}
+
+// DeactivateByID soft-deletes the user by setting deleted_at. The user will no longer
+// appear in FindByEmail/FindByID and cannot log in.
+func (s UserStore) DeactivateByID(ctx context.Context, userID, updatedBy string) error {
+	query := `
+		UPDATE users
+		SET deleted_at = NOW(), updated_at = NOW(), updated_by = $2
+		WHERE id = $1
+		  AND deleted_at IS NULL
+	`
+
+	result, err := s.DB.ExecContext(ctx, query, userID, updatedBy)
 	if err != nil {
 		return err
 	}

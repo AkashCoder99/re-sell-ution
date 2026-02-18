@@ -72,6 +72,7 @@ func main() {
 	mux.HandleFunc("GET /api/v1/auth/me", middleware.Auth(tokenManager, authHandler.Me))
 	mux.HandleFunc("PATCH /api/v1/users/me", middleware.Auth(tokenManager, authHandler.UpdateProfile))
 	mux.HandleFunc("PUT /api/v1/users/me", middleware.Auth(tokenManager, authHandler.UpdateProfile))
+	mux.HandleFunc("DELETE /api/v1/users/me", middleware.Auth(tokenManager, authHandler.DeactivateAccount))
 	mux.HandleFunc("POST /api/v1/auth/logout", middleware.Auth(tokenManager, authHandler.Logout))
 
 	handler := observability.RequestMetrics(metrics, logger, withCORS(cfg.CorsOrigin, mux))

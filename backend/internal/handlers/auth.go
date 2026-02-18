@@ -260,7 +260,7 @@ func (h AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		ProfileImageURL: req.PhotoURL,
 	}
 
-	user, err := h.Users.UpdateProfile(r.Context(), userID, up)
+	user, err := h.Users.UpdateProfile(r.Context(), userID, userID, up)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update profile"})
 		return
@@ -280,6 +280,27 @@ func (h AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	// Keeping this endpoint enables forward compatibility with token revocation.
 	writeJSON(w, http.StatusOK, map[string]string{"message": "logged out"})
 	log.Printf("auth.logout.success user_id=%s", userID)
+}
+
+func (h AuthHandler) DeactivateAccount(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	if err := h.Users.DeactivateByID(r.Context(), userID, userID); err != nil {
+		if errors.Is(err, models.ErrUserNotFound) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "account not found"})
+			return
+		}
+		log.Printf("auth.deactivate failed user_id=%s err=%v", userID, err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to deactivate account"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "account deactivated successfully"})
+	log.Printf("auth.deactivate.success user_id=%s", userID)
 }
 
 func (h AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
@@ -426,7 +447,7 @@ func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := h.Users.UpdatePasswordHashByID(r.Context(), user.ID, passwordHash); err != nil {
+	if err := h.Users.UpdatePasswordHashByID(r.Context(), user.ID, passwordHash, user.ID); err != nil {
 		if errors.Is(err, models.ErrUserNotFound) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired otp"})
 			return
