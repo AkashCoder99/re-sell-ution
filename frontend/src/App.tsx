@@ -20,7 +20,11 @@ import {
   IconEdit,
   IconCity,
   IconLogout,
-  IconBack
+  IconBack,
+  IconLock,
+  IconEye,
+  IconEyeOff,
+  IconUser
 } from './components/Icons'
 
 const defaultLoginForm: LoginRequest = { email: '', password: '' }
@@ -59,6 +63,8 @@ export default function App() {
   const [showRegisterPassword, setShowRegisterPassword] = useState<boolean>(false)
   const [listingsRefresh, setListingsRefresh] = useState(0)
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user])
+  const isWideView =
+    isAuthenticated && (viewMode === 'create-listing' || viewMode === 'my-listings')
 
   useEffect(() => {
     if (!token) {
@@ -237,14 +243,41 @@ export default function App() {
 
   return (
     <main className="auth-page">
-      <section className="auth-card">
+      <section className={`auth-card ${isWideView ? 'auth-card-wide' : ''}`}>
         <h1>🛍️ ReSellution</h1>
         <p className="subtitle">Your local marketplace platform</p>
 
         {message && <p className="message">{message}</p>}
 
         {/* City Selector - shown after signup/login if no city set */}
-        {isAuthenticated && showCitySelector ? (
+        {isAuthenticated && viewMode === 'create-listing' && user ? (
+          <CreateListing
+            token={token}
+            userCity={user.city || ''}
+            onSuccess={() => {
+              setViewMode('profile')
+              setListingsRefresh((r) => r + 1)
+              setMessage('Listing created successfully.')
+            }}
+            onCancel={() => setViewMode('profile')}
+          />
+        ) : isAuthenticated && viewMode === 'my-listings' && user ? (
+          <>
+            <button
+              type="button"
+              className="back-link-btn"
+              onClick={() => setViewMode('profile')}
+            >
+              <IconBack className="back-link-icon" aria-hidden />
+              <span>Back to Profile</span>
+            </button>
+            <MyListingsDashboard
+              token={token}
+              refreshTrigger={listingsRefresh}
+              onMarkSold={() => setListingsRefresh((r) => r + 1)}
+            />
+          </>
+        ) : isAuthenticated && showCitySelector ? (
           <CitySelector
             currentCity={user?.city}
             onCitySelected={handleCitySelected}
@@ -260,7 +293,7 @@ export default function App() {
             onUpdate={handleProfileUpdate}
             onCancel={() => setViewMode('profile')}
           />
-        ) : isAuthenticated && user ? (
+        ) : isAuthenticated && viewMode === 'profile' && user ? (
           /* Profile View */
           <div className="profile">
             {token === PREVIEW_TOKEN && (
@@ -320,33 +353,6 @@ export default function App() {
               </button>
             </div>
           </div>
-        ) : isAuthenticated && viewMode === 'create-listing' && user ? (
-          <CreateListing
-            token={token}
-            userCity={user.city || ''}
-            onSuccess={() => {
-              setViewMode('profile')
-              setListingsRefresh((r) => r + 1)
-              setMessage('Listing created successfully.')
-            }}
-            onCancel={() => setViewMode('profile')}
-          />
-        ) : isAuthenticated && viewMode === 'my-listings' ? (
-          <>
-            <button
-              type="button"
-              className="back-link-btn"
-              onClick={() => setViewMode('profile')}
-            >
-              <IconBack className="back-link-icon" aria-hidden />
-              <span>Back to Profile</span>
-            </button>
-            <MyListingsDashboard
-              token={token}
-              refreshTrigger={listingsRefresh}
-              onMarkSold={() => setListingsRefresh((r) => r + 1)}
-            />
-          </>
         ) : viewMode === 'forgot-password' ? (
           /* Forgot Password */
           <ForgotPassword onBack={() => setViewMode('login')} onGoToReset={() => setViewMode('reset-password')} />
@@ -356,17 +362,17 @@ export default function App() {
         ) : (
           /* Login/Register */
           <>
-            <div className="mode-toggle">
+            <div className="auth-mode-toggle">
               <button
                 type="button"
-                className={viewMode === 'login' ? 'active' : ''}
+                className={`auth-mode-btn ${viewMode === 'login' ? 'active' : ''}`}
                 onClick={() => setViewMode('login')}
               >
                 Login
               </button>
               <button
                 type="button"
-                className={viewMode === 'register' ? 'active' : ''}
+                className={`auth-mode-btn ${viewMode === 'register' ? 'active' : ''}`}
                 onClick={() => setViewMode('register')}
               >
                 Register
@@ -375,105 +381,161 @@ export default function App() {
 
             {viewMode === 'login' ? (
               <form onSubmit={handleLogin} className="auth-form">
-                <label>
-                  Email
-                  <input type="email" value={loginForm.email} onChange={onLoginEmailChange} required />
-                </label>
+                <div className="auth-form-card">
+                  <label className="auth-form-label" htmlFor="login-email">
+                    <IconEmail className="auth-form-label-icon" aria-hidden />
+                    <span>Email</span>
+                  </label>
+                  <input
+                    id="login-email"
+                    type="email"
+                    className="auth-form-input"
+                    value={loginForm.email}
+                    onChange={onLoginEmailChange}
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
 
-                <label>
-                  Password
-                  <div className="password-input-wrapper">
-                    <input 
-                      type={showLoginPassword ? "text" : "password"} 
-                      value={loginForm.password} 
-                      onChange={onLoginPasswordChange} 
-                      required 
+                <div className="auth-form-card">
+                  <label className="auth-form-label" htmlFor="login-password">
+                    <IconLock className="auth-form-label-icon" aria-hidden />
+                    <span>Password</span>
+                  </label>
+                  <div className="auth-password-wrap">
+                    <input
+                      id="login-password"
+                      type={showLoginPassword ? 'text' : 'password'}
+                      className="auth-form-input"
+                      value={loginForm.password}
+                      onChange={onLoginPasswordChange}
+                      placeholder="••••••••"
+                      required
                     />
                     <button
                       type="button"
-                      className="password-toggle"
+                      className="auth-password-toggle"
                       onClick={() => setShowLoginPassword(!showLoginPassword)}
-                      aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                      aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showLoginPassword ? '👁️' : '👁️‍🗨️'}
+                      {showLoginPassword ? (
+                        <IconEyeOff className="auth-password-toggle-icon" aria-hidden />
+                      ) : (
+                        <IconEye className="auth-password-toggle-icon" aria-hidden />
+                      )}
                     </button>
                   </div>
-                </label>
+                </div>
 
-                <button type="submit" disabled={loading}>
+                <button type="submit" className="auth-form-submit" disabled={loading}>
                   {loading ? 'Please wait...' : 'Login'}
                 </button>
 
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={() => setViewMode('forgot-password')}
-                >
-                  Forgot password?
-                </button>
-
-                <button
-                  type="button"
-                  className="link-button preview-button"
-                  onClick={() => {
-                    setToken(PREVIEW_TOKEN)
-                    setUser(PREVIEW_USER)
-                    setViewMode('profile')
-                    setMessage('Preview mode — explore without an account. Use mock data.')
-                  }}
-                >
-                  Preview app without login
-                </button>
+                <div className="auth-form-links">
+                  <button
+                    type="button"
+                    className="auth-form-link"
+                    onClick={() => setViewMode('forgot-password')}
+                  >
+                    Forgot password?
+                  </button>
+                  <button
+                    type="button"
+                    className="auth-form-link auth-form-link-preview"
+                    onClick={() => {
+                      setToken(PREVIEW_TOKEN)
+                      setUser(PREVIEW_USER)
+                      setViewMode('profile')
+                      setMessage('Preview mode — explore without an account. Use mock data.')
+                    }}
+                  >
+                    Preview app without login
+                  </button>
+                </div>
               </form>
             ) : (
               <form onSubmit={handleRegister} className="auth-form">
-                <label>
-                  Full name
-                  <input type="text" value={registerForm.full_name} onChange={onRegisterNameChange} required />
-                </label>
+                <div className="auth-form-card">
+                  <label className="auth-form-label" htmlFor="register-name">
+                    <IconUser className="auth-form-label-icon" aria-hidden />
+                    <span>Full name</span>
+                  </label>
+                  <input
+                    id="register-name"
+                    type="text"
+                    className="auth-form-input"
+                    value={registerForm.full_name}
+                    onChange={onRegisterNameChange}
+                    placeholder="Your name"
+                    required
+                  />
+                </div>
 
-                <label>
-                  Email
-                  <input type="email" value={registerForm.email} onChange={onRegisterEmailChange} required />
-                </label>
+                <div className="auth-form-card">
+                  <label className="auth-form-label" htmlFor="register-email">
+                    <IconEmail className="auth-form-label-icon" aria-hidden />
+                    <span>Email</span>
+                  </label>
+                  <input
+                    id="register-email"
+                    type="email"
+                    className="auth-form-input"
+                    value={registerForm.email}
+                    onChange={onRegisterEmailChange}
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
 
-                <label>
-                  Password (min 8 chars)
-                  <div className="password-input-wrapper">
+                <div className="auth-form-card">
+                  <label className="auth-form-label" htmlFor="register-password">
+                    <IconLock className="auth-form-label-icon" aria-hidden />
+                    <span>Password (min 8 characters)</span>
+                  </label>
+                  <div className="auth-password-wrap">
                     <input
-                      type={showRegisterPassword ? "text" : "password"}
+                      id="register-password"
+                      type={showRegisterPassword ? 'text' : 'password'}
+                      className="auth-form-input"
                       value={registerForm.password}
                       onChange={onRegisterPasswordChange}
+                      placeholder="••••••••"
                       required
                       minLength={8}
                     />
                     <button
                       type="button"
-                      className="password-toggle"
+                      className="auth-password-toggle"
                       onClick={() => setShowRegisterPassword(!showRegisterPassword)}
-                      aria-label={showRegisterPassword ? "Hide password" : "Show password"}
+                      aria-label={showRegisterPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showRegisterPassword ? '👁️' : '👁️‍🗨️'}
+                      {showRegisterPassword ? (
+                        <IconEyeOff className="auth-password-toggle-icon" aria-hidden />
+                      ) : (
+                        <IconEye className="auth-password-toggle-icon" aria-hidden />
+                      )}
                     </button>
                   </div>
-                </label>
+                </div>
 
-                <button type="submit" disabled={loading}>
+                <button type="submit" className="auth-form-submit" disabled={loading}>
                   {loading ? 'Please wait...' : 'Create account'}
                 </button>
 
-                <button
-                  type="button"
-                  className="link-button preview-button"
-                  onClick={() => {
-                    setToken(PREVIEW_TOKEN)
-                    setUser(PREVIEW_USER)
-                    setViewMode('profile')
-                    setMessage('Preview mode — explore without an account. Use mock data.')
-                  }}
-                >
-                  Preview app without login
-                </button>
+                <div className="auth-form-links">
+                  <button
+                    type="button"
+                    className="auth-form-link auth-form-link-preview"
+                    onClick={() => {
+                      setToken(PREVIEW_TOKEN)
+                      setUser(PREVIEW_USER)
+                      setViewMode('profile')
+                      setMessage('Preview mode — explore without an account. Use mock data.')
+                    }}
+                  >
+                    Preview app without login
+                  </button>
+                </div>
               </form>
             )}
           </>
