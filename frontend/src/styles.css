@@ -54,6 +54,15 @@ body::before {
   position: relative;
 }
 
+.auth-page-with-image {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.55), rgba(15, 23, 42, 0.55)),
+    url('/images/auth-bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .auth-card {
   max-width: 450px;
   width: 100%;

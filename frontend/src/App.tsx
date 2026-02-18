@@ -63,6 +63,7 @@ export default function App() {
   const [showRegisterPassword, setShowRegisterPassword] = useState<boolean>(false)
   const [listingsRefresh, setListingsRefresh] = useState(0)
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user])
+  const isAuthLandingView = !isAuthenticated && (viewMode === 'login' || viewMode === 'register')
   const isWideView =
     isAuthenticated && (viewMode === 'create-listing' || viewMode === 'my-listings')
 
@@ -242,7 +243,7 @@ export default function App() {
   }
 
   return (
-    <main className="auth-page">
+    <main className={`auth-page ${isAuthLandingView ? 'auth-page-with-image' : ''}`}>
       <section className={`auth-card ${isWideView ? 'auth-card-wide' : ''}`}>
         <h1>🛍️ ReSellution</h1>
         <p className="subtitle">Your local marketplace platform</p>
