@@ -65,6 +65,7 @@ func (s UserStore) FindByEmail(ctx context.Context, email string) (User, error) 
 		SELECT id, email, password_hash, full_name, city, bio, profile_image_url, created_at, updated_at
 		FROM users
 		WHERE email = $1
+		  AND deleted_at IS NULL
 	`
 
 	var user User
@@ -98,6 +99,7 @@ func (s UserStore) FindByID(ctx context.Context, id string) (User, error) {
 		SELECT id, email, password_hash, full_name, city, bio, profile_image_url, created_at, updated_at
 		FROM users
 		WHERE id = $1
+		  AND deleted_at IS NULL
 	`
 
 	var user User
@@ -251,6 +253,7 @@ func (s UserStore) UpdatePasswordHashByID(ctx context.Context, userID, passwordH
 		UPDATE users
 		SET password_hash = $2, updated_at = NOW()
 		WHERE id = $1
+		  AND deleted_at IS NULL
 	`
 
 	result, err := s.DB.ExecContext(ctx, query, userID, passwordHash)
