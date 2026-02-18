@@ -58,6 +58,7 @@ export default function App() {
   const [user, setUser] = useState<PublicUser | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
   const [message, setMessage] = useState<string>('')
+  const [authError, setAuthError] = useState<string>('')
   const [showCitySelector, setShowCitySelector] = useState<boolean>(false)
   const [showLoginPassword, setShowLoginPassword] = useState<boolean>(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState<boolean>(false)
@@ -102,13 +103,13 @@ export default function App() {
     event.preventDefault()
     setLoading(true)
     setMessage('')
+    setAuthError('')
 
     try {
       const data = await login(loginForm)
       localStorage.setItem('auth_token', data.token)
       setToken(data.token)
       setUser(data.user)
-      setMessage('Login successful.')
       logInfo('auth.login.success', { user_id: data.user.id, email: data.user.email })
       setLoginForm(defaultLoginForm)
       
@@ -120,7 +121,7 @@ export default function App() {
       }
     } catch (error: unknown) {
       logError('auth.login.failed', { error: error instanceof Error ? error.message : 'unknown error' })
-      setMessage(error instanceof Error ? error.message : 'Login failed')
+      setAuthError(error instanceof Error ? error.message : 'Login failed')
     } finally {
       setLoading(false)
     }
@@ -130,13 +131,13 @@ export default function App() {
     event.preventDefault()
     setLoading(true)
     setMessage('')
+    setAuthError('')
 
     try {
       const data = await register(registerForm)
       localStorage.setItem('auth_token', data.token)
       setToken(data.token)
       setUser(data.user)
-      setMessage('Account created and logged in.')
       logInfo('auth.register.success', { user_id: data.user.id, email: data.user.email })
       setRegisterForm(defaultRegisterForm)
       
@@ -144,7 +145,7 @@ export default function App() {
       setShowCitySelector(true)
     } catch (error: unknown) {
       logError('auth.register.failed', { error: error instanceof Error ? error.message : 'unknown error' })
-      setMessage(error instanceof Error ? error.message : 'Registration failed')
+      setAuthError(error instanceof Error ? error.message : 'Registration failed')
     } finally {
       setLoading(false)
     }
@@ -223,22 +224,27 @@ export default function App() {
   }
 
   function onLoginEmailChange(event: ChangeEvent<HTMLInputElement>) {
+    setAuthError('')
     setLoginForm((prev) => ({ ...prev, email: event.target.value }))
   }
 
   function onLoginPasswordChange(event: ChangeEvent<HTMLInputElement>) {
+    setAuthError('')
     setLoginForm((prev) => ({ ...prev, password: event.target.value }))
   }
 
   function onRegisterNameChange(event: ChangeEvent<HTMLInputElement>) {
+    setAuthError('')
     setRegisterForm((prev) => ({ ...prev, full_name: event.target.value }))
   }
 
   function onRegisterEmailChange(event: ChangeEvent<HTMLInputElement>) {
+    setAuthError('')
     setRegisterForm((prev) => ({ ...prev, email: event.target.value }))
   }
 
   function onRegisterPasswordChange(event: ChangeEvent<HTMLInputElement>) {
+    setAuthError('')
     setRegisterForm((prev) => ({ ...prev, password: event.target.value }))
   }
 
@@ -363,18 +369,26 @@ export default function App() {
         ) : (
           /* Login/Register */
           <>
+            {authError && <p className="error-message">{authError}</p>}
+
             <div className="auth-mode-toggle">
               <button
                 type="button"
                 className={`auth-mode-btn ${viewMode === 'login' ? 'active' : ''}`}
-                onClick={() => setViewMode('login')}
+                onClick={() => {
+                  setAuthError('')
+                  setViewMode('login')
+                }}
               >
                 Login
               </button>
               <button
                 type="button"
                 className={`auth-mode-btn ${viewMode === 'register' ? 'active' : ''}`}
-                onClick={() => setViewMode('register')}
+                onClick={() => {
+                  setAuthError('')
+                  setViewMode('register')
+                }}
               >
                 Register
               </button>
