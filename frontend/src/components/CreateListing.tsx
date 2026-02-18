@@ -1,5 +1,5 @@
 /**
- * F12 — Create listing: multi-step flow (basic info → details → photos → review)
+ * F12 - Create listing: multi-step flow (basic info -> details -> photos -> review)
  */
 
 import { useState, useEffect } from 'react'
@@ -62,23 +62,24 @@ export default function CreateListing({
   }, [token])
 
   const stepIndex = STEPS.indexOf(step)
+  const progressPercent = ((stepIndex + 1) / STEPS.length) * 100
 
   const validateBasic = (): boolean => {
     const errs: Record<string, string> = {}
-    const t = validateListingTitle(draft.title)
-    if (t) errs.title = t
-    const c = draft.city.trim() ? null : 'City is required'
-    if (c) errs.city = c
+    const titleError = validateListingTitle(draft.title)
+    if (titleError) errs.title = titleError
+    const cityError = draft.city.trim() ? null : 'City is required'
+    if (cityError) errs.city = cityError
     setFieldErrors(errs)
     return Object.keys(errs).length === 0
   }
 
   const validateDetails = (): boolean => {
     const errs: Record<string, string> = {}
-    const d = validateListingDescription(draft.description)
-    if (d) errs.description = d
-    const p = validateListingPrice(draft.price)
-    if (p) errs.price = p
+    const descriptionError = validateListingDescription(draft.description)
+    if (descriptionError) errs.description = descriptionError
+    const priceError = validateListingPrice(draft.price)
+    if (priceError) errs.price = priceError
     setFieldErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -142,6 +143,16 @@ export default function CreateListing({
         <IconAddListing className="create-listing-heading-icon" aria-hidden />
         Create Listing
       </h2>
+      <p className="create-listing-subtitle">Add your item details in a few quick steps.</p>
+      <p className="create-listing-step-index">
+        Step {stepIndex + 1} of {STEPS.length}
+      </p>
+      <div className="create-listing-progress" aria-hidden>
+        <div className="create-listing-progress-track">
+          <div className="create-listing-progress-fill" style={{ width: `${progressPercent}%` }} />
+        </div>
+      </div>
+
       <div className="create-listing-steps">
         {STEPS.map((s, i) => (
           <button
@@ -159,10 +170,11 @@ export default function CreateListing({
 
       <form onSubmit={handleSubmit} className="create-listing-form">
         {step === 'basic' && (
-          <div className="create-listing-step-content">
-            <label>
-              Title *
+          <div className="create-listing-step-content create-listing-step-content-grid">
+            <label className="create-listing-field">
+              <span className="create-listing-label">Title *</span>
               <input
+                className="create-listing-input create-listing-input-key"
                 type="text"
                 name="title"
                 value={draft.title}
@@ -174,9 +186,11 @@ export default function CreateListing({
                 <span className="field-error">{fieldErrors.title}</span>
               )}
             </label>
-            <label>
-              City *
+
+            <label className="create-listing-field">
+              <span className="create-listing-label">City *</span>
               <input
+                className="create-listing-input create-listing-input-key"
                 type="text"
                 name="city"
                 value={draft.city}
@@ -187,14 +201,16 @@ export default function CreateListing({
                 <span className="field-error">{fieldErrors.city}</span>
               )}
             </label>
-            <label>
-              Category
+
+            <label className="create-listing-field">
+              <span className="create-listing-label">Category</span>
               <select
+                className="create-listing-input"
                 name="category_id"
                 value={draft.category_id || ''}
                 onChange={handleChange}
               >
-                <option value="">— Select —</option>
+                <option value="">Select</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -206,10 +222,11 @@ export default function CreateListing({
         )}
 
         {step === 'details' && (
-          <div className="create-listing-step-content">
-            <label>
-              Description *
+          <div className="create-listing-step-content create-listing-step-content-grid">
+            <label className="create-listing-field">
+              <span className="create-listing-label">Description *</span>
               <textarea
+                className="create-listing-input"
                 name="description"
                 value={draft.description}
                 onChange={handleChange}
@@ -222,9 +239,11 @@ export default function CreateListing({
                 <span className="field-error">{fieldErrors.description}</span>
               )}
             </label>
-            <label>
-              Condition *
+
+            <label className="create-listing-field">
+              <span className="create-listing-label">Condition *</span>
               <select
+                className="create-listing-input"
                 name="condition"
                 value={draft.condition}
                 onChange={handleChange}
@@ -236,9 +255,11 @@ export default function CreateListing({
                 ))}
               </select>
             </label>
-            <label>
-              Price (₹) *
+
+            <label className="create-listing-field">
+              <span className="create-listing-label">Price (INR) *</span>
               <input
+                className="create-listing-input"
                 type="number"
                 name="price"
                 value={draft.price || ''}
@@ -251,9 +272,11 @@ export default function CreateListing({
                 <span className="field-error">{fieldErrors.price}</span>
               )}
             </label>
-            <label>
-              State (optional)
+
+            <label className="create-listing-field">
+              <span className="create-listing-label">State (optional)</span>
               <input
+                className="create-listing-input"
                 type="text"
                 name="state"
                 value={draft.state}
@@ -269,27 +292,32 @@ export default function CreateListing({
             <p className="create-listing-photo-hint">
               Add up to 10 photos. First image will be the cover.
             </p>
-            <PhotoUpload
-              value={photos}
-              onChange={setPhotos}
-              maxFiles={10}
-              onUpload={async (file) => {
-                // Mock: use object URL as "uploaded" URL so we can submit with image_urls
-                return Promise.resolve(URL.createObjectURL(file))
-              }}
-            />
+            <p className="create-listing-photo-subhint">
+              Use clear photos in good lighting for faster responses.
+            </p>
+            <div className="create-listing-photo-card">
+              <PhotoUpload
+                value={photos}
+                onChange={setPhotos}
+                maxFiles={10}
+                onUpload={async (file) => {
+                  // Mock: use object URL as "uploaded" URL so we can submit with image_urls
+                  return Promise.resolve(URL.createObjectURL(file))
+                }}
+              />
+            </div>
           </div>
         )}
 
         {step === 'review' && (
           <div className="create-listing-step-content create-listing-review">
             <div className="create-listing-review-block">
-              <h3>{draft.title || '—'}</h3>
+              <h3>{draft.title || '-'}</h3>
               <p className="create-listing-review-meta">
                 {draft.city}
-                {draft.state ? `, ${draft.state}` : ''} · {draft.condition} · ₹{draft.price}
+                {draft.state ? `, ${draft.state}` : ''} | {draft.condition} | INR {draft.price}
               </p>
-              <p className="create-listing-review-desc">{draft.description || '—'}</p>
+              <p className="create-listing-review-desc">{draft.description || '-'}</p>
               <p className="create-listing-review-photos">
                 {photos.length} photo(s) attached
               </p>
@@ -297,22 +325,22 @@ export default function CreateListing({
           </div>
         )}
 
-        <div className="button-group">
+        <div className="button-group create-listing-actions">
           {stepIndex > 0 ? (
-            <button type="button" className="secondary" onClick={goPrev}>
+            <button type="button" className="profile-edit-btn secondary" onClick={goPrev}>
               Back
             </button>
           ) : (
-            <button type="button" className="secondary" onClick={onCancel}>
+            <button type="button" className="profile-edit-btn secondary" onClick={onCancel}>
               Cancel
             </button>
           )}
           {step !== 'review' ? (
-            <button type="button" onClick={goNext}>
+            <button type="button" className="profile-edit-btn primary" onClick={goNext}>
               Next
             </button>
           ) : (
-            <button type="submit" disabled={loading}>
+            <button type="submit" className="profile-edit-btn primary" disabled={loading}>
               {loading ? 'Publishing...' : 'Publish Listing'}
             </button>
           )}
