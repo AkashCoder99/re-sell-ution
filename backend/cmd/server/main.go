@@ -12,6 +12,7 @@ import (
 	"resellution/backend/internal/middleware"
 	"resellution/backend/internal/models"
 	"resellution/backend/internal/observability"
+	"resellution/backend/internal/ratelimit"
 	"resellution/backend/internal/utils"
 )
 
@@ -65,7 +66,8 @@ func main() {
 	mux.HandleFunc("GET /metrics", observability.MetricsHandler(metrics))
 	mux.HandleFunc("POST /api/v1/auth/register", authHandler.Register)
 	mux.HandleFunc("POST /api/v1/auth/login", authHandler.Login)
-	mux.HandleFunc("POST /api/v1/auth/password/reset/request", authHandler.RequestPasswordReset)
+	passwordResetRateLimiter := ratelimit.NewIPRateLimiter(cfg.PasswordResetRateLimitPerIP, cfg.PasswordResetRateLimitWindowMinutes)
+	mux.HandleFunc("POST /api/v1/auth/password/reset/request", ratelimit.IPRateLimit(passwordResetRateLimiter, authHandler.RequestPasswordReset))
 	mux.HandleFunc("POST /api/v1/auth/password/reset/confirm", authHandler.ConfirmPasswordReset)
 	mux.HandleFunc("GET /api/v1/auth/me", middleware.Auth(tokenManager, authHandler.Me))
 	mux.HandleFunc("PATCH /api/v1/users/me", middleware.Auth(tokenManager, authHandler.UpdateProfile))

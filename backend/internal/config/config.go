@@ -17,6 +17,8 @@ type Config struct {
 	PasswordResetCooldownMinutes int
 	PasswordResetOTPDigits     int
 	PasswordResetMaxAttempts   int
+	PasswordResetRateLimitPerIP int
+	PasswordResetRateLimitWindowMinutes int
 	SMTPHost                   string
 	SMTPPort                   string
 	SMTPUsername               string
@@ -69,6 +71,22 @@ func Load() (Config, error) {
 		}
 		passwordResetMaxAttempts = parsed
 	}
+	passwordResetRateLimitPerIP := 5
+	if raw := os.Getenv("PASSWORD_RESET_RATE_LIMIT_PER_IP"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return Config{}, err
+		}
+		passwordResetRateLimitPerIP = parsed
+	}
+	passwordResetRateLimitWindowMinutes := 60
+	if raw := os.Getenv("PASSWORD_RESET_RATE_LIMIT_WINDOW_MINUTES"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return Config{}, err
+		}
+		passwordResetRateLimitWindowMinutes = parsed
+	}
 
 	cfg := Config{
 		Port:                       envOrDefault("PORT", "8080"),
@@ -79,6 +97,8 @@ func Load() (Config, error) {
 		PasswordResetCooldownMinutes: passwordResetCooldownMinutes,
 		PasswordResetOTPDigits:     passwordResetOTPDigits,
 		PasswordResetMaxAttempts:   passwordResetMaxAttempts,
+		PasswordResetRateLimitPerIP: passwordResetRateLimitPerIP,
+		PasswordResetRateLimitWindowMinutes: passwordResetRateLimitWindowMinutes,
 		SMTPHost:                   os.Getenv("SMTP_HOST"),
 		SMTPPort:                   envOrDefault("SMTP_PORT", "587"),
 		SMTPUsername:               os.Getenv("SMTP_USERNAME"),
