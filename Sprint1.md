@@ -1,5 +1,24 @@
 # Sprint 1 Status Report
 
+## User Stories
+- **F1 - Sign up UI**: As a new user, I want to sign up with validated inputs so that I can create an account securely.
+- **F2 - Login UI**: As a returning user, I want to log in and stay signed in so that I can access my account without repeated authentication.
+- **F3 - Forgot/Reset password UI**: As a user who forgot my password, I want to request and confirm a password reset so that I can regain access to my account.
+- **F4 - Logout UI**: As a signed-in user, I want to log out and clear my session so that my account remains secure on shared devices.
+- **F5 - Choose City / Location UI**: As a user, I want to select and save my city so that content and search results are relevant to my location.
+- **F6 - Basic profile UI**: As a user, I want to view and edit my profile details so that my account information is accurate.
+- **B1 - Auth service (signup/login/logout)**: As a backend system, I want secure signup, login, and logout endpoints so that user authentication is reliable and safe.
+- **B2 - Account recovery (reset/OTP)**: As a backend system, I want OTP-based password recovery with cooldowns and expiry so that account recovery is secure and abuse-resistant.
+- **B4 - User profile APIs**: As a client app, I want profile read and update APIs with validation so that profile data stays consistent and valid.
+- **B6 - Observability (logs + basic metrics)**: As an engineering team, I want structured logs and request metrics so that I can monitor health and diagnose issues quickly.
+- **B3 [DB] - Core schema + migrations**: As a backend system, I want core database schema and migrations so that application data is stored with clear structure and version control.
+- **B5 [DB] - Constraints + indexes (MVP)**: As a backend system, I want database constraints and indexes so that data integrity is enforced and queries perform efficiently.
+- **B14 [DB] - Soft delete + audit fields**: As an engineering team, I want soft deletes and audit fields so that we preserve history and trace data changes.
+- **F12 - Create listing (multi-step form)**: As a seller, I want a multi-step listing form with validation so that I can publish complete and correct listings.
+- **F13 - Upload photos UI**: As a seller, I want to upload, reorder, retry, and remove listing photos so that I can present items effectively.
+- **F14 - My listings dashboard**: As a seller, I want a dashboard for active, sold, and draft listings so that I can manage my inventory efficiently.
+- **F20 - Mark as sold + buyer selection**: As a seller, I want to mark a listing as sold and optionally link a buyer so that listing lifecycle and transaction context are accurate.
+
 ## Scope Reviewed
 This report covers only the stories listed for:
 - PART-01: Auth & User Profile
