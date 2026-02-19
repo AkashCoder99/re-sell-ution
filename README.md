@@ -48,7 +48,7 @@ Tables:
 If you use Homebrew PostgreSQL:
 
 ```bash
-brew services start postgresql@18
+brew services start postgresql@16
 createdb resellution
 ```
 

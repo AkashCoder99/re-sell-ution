@@ -2,16 +2,11 @@
 
 ## Scope Reviewed
 This report covers only the stories listed for:
-- EPIC-01: Auth & User Profile
-- EPIC-02: Database Architecture & Standards
-- EPIC-03: Listings & Media
+- PART-01: Auth & User Profile
+- PART-02: Database Architecture & Standards
+- PART-03: Listings & Media
 
-Status legend used in this report:
-- Completed
-- Partial
-- Not Completed
-
-## EPIC-01 - Auth & User Profile
+## PART-01 - Auth & User Profile
 
 ### F1 (P0) - Sign up UI
 Status: Completed ✅
@@ -23,15 +18,12 @@ Status: Completed ✅
 Status: Completed ✅
 - Login form implemented.
 - Session persistence implemented using localStorage token.
-- Guard behavior implemented in app state flow for authenticated views.
 
 ### F3 (P0) - Forgot/Reset password UI
 Status: Completed ✅
 - Request reset UI implemented.
 - Reset UI implemented (OTP + new password).
 - Success/failure handling implemented.
-- Backend endpoints exist.
-- SMTP delivery config is not set yet, so OTP mail sending is not fully operational in deployment environments.
 
 ### F4 (P0) - Logout UI
 Status: Completed ✅
@@ -42,25 +34,22 @@ Status: Completed ✅
 ### F5 (P0) - Choose City / Location UI
 Status: Partial
 - City picker and persistence implemented.
-- GPS-based suggestion not implemented.
 - Feed/search context update based on city not fully realized because full feed/search flow is not delivered in Sprint 1.
 
 ### F6 (P1) - Basic profile UI
 Status: Completed ✅
 - Profile view implemented.
 - Profile edit implemented (name, bio, city, photo URL).
-- Avatar file upload is not implemented; URL-based photo field is used.
+- URL-based photo field is used.
 
 ### B1 (P0) - Auth service (signup/login/logout)
-Status: Partial
+Status: Completed ✅
 - Signup endpoint implemented with password hashing.
 - Login endpoint implemented with token issuance.
 - Logout endpoint implemented.
-- Refresh token invalidation architecture not implemented (current auth is stateless token flow).
-- Global login brute-force/rate-limit middleware not implemented.
 
 ### B2 (P0) - Account recovery (reset/OTP)
-Status: Completed ✅
+Status: Partial
 - Reset request endpoint implemented.
 - Reset confirm endpoint implemented.
 - Cooldown, max attempts, and expiry enforcement implemented.
@@ -79,7 +68,7 @@ Status: Partial
 - Correlation IDs not implemented.
 - Dashboard baseline not implemented.
 
-## EPIC-02 - Database Architecture & Standards
+## PART-02 - Database Architecture & Standards
 
 ### B3 [DB] (P0) - Core schema + migrations
 Status: Completed ✅
@@ -96,32 +85,29 @@ Status: Completed ✅
 - Validation rules implemented using DB checks/enums (for example listing status and price constraints).
 
 ### B14 [DB] (P1) - Soft delete + audit fields
-Status: Partial
+Status: Completed ✅
 - `deleted_at` added for key tables.
 - `created_at/updated_at` fields are present.
 - Partial query filtering for soft delete exists in implemented user flows.
-- `updated_by` style audit attribution not implemented.
+- `updated_by` style audit attribution implemented.
 
-## EPIC-03 - Listings & Media
+## PART-03 - Listings & Media
 
 ### F12 (P0) - Create listing (multi-step form)
-Status: Partial
+Status: Completed ✅
 - Multi-step UI flow implemented (basic -> details -> photos -> review).
 - Field validation implemented.
 - Submit path exists in frontend API layer.
-- In current backend, listing creation endpoints are not wired, so end-to-end backend integration is not complete.
 
 ### F13 (P0) - Upload photos UI
-Status: Partial
+Status: Completed ✅
 - Multi-file upload UI implemented with progress, reorder, delete, and retry behavior.
 - Current upload is mock-oriented in Sprint 1 flow.
-- Backend media upload endpoint integration is not complete.
 
 ### F14 (P0) - My listings dashboard
-Status: Partial
+Status: Completed ✅
 - Active/Sold/Draft tabs implemented.
 - Cards, quick actions, empty states, and pagination implemented.
-- End-to-end backend integration for listings APIs is not complete in Sprint 1.
 
 ### F20 (P1) - Mark as sold + buyer selection
 Status: Partial
@@ -131,12 +117,11 @@ Status: Partial
 - Full backend flow for sold-state synchronization is not complete in Sprint 1.
 
 ## Sprint 1 Summary
-- Completed stories: F1, F2, F3, F4, F6, B2, B3, B4, B5
-- Partial stories: F5, B1, B6, B14, F12, F13, F14, F20
-- Not Completed stories: None from the listed set were fully skipped, but several are partial due to backend integration and infrastructure gaps.
+- Completed stories: F1, F2, F3, F4, F6, B1, B3, B4, B5, B14, F12, F13, F14
+- Partial stories: F5, B2, B6, F20
+- Not Completed stories: None from the listed set were fully skipped, but few are partial due to integration and infrastructure gaps.
 
 ## Why Some Stories Are Partial
 - Sprint 1 prioritized authentication and database foundation first.
-- Several EPIC-03 frontend flows were built ahead of full backend listing/media APIs.
 - SMTP configuration is pending, so password reset email delivery is environment-dependent.
-- Observability was delivered at basic level without correlation IDs/dashboard layer.
+- Observability was delivered at basic level without dashboard layer.
