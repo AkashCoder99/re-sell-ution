@@ -29,6 +29,7 @@ func main() {
 	defer database.Close()
 
 	userStore := models.UserStore{DB: database}
+	listingStore := models.ListingStore{DB: database}
 	tokenManager := utils.NewTokenManager(cfg.TokenSecret)
 	var emailSender utils.EmailSender
 	if strings.TrimSpace(cfg.SMTPHost) != "" {
@@ -41,6 +42,8 @@ func main() {
 			FromName:  cfg.SMTPFromName,
 		}
 	}
+
+	listingHandler := handlers.ListingHandler{Listings: listingStore}
 
 	authHandler := handlers.AuthHandler{
 		Users:                        userStore,
@@ -74,6 +77,13 @@ func main() {
 	mux.HandleFunc("PUT /api/v1/users/me", middleware.Auth(tokenManager, authHandler.UpdateProfile))
 	mux.HandleFunc("DELETE /api/v1/users/me", middleware.Auth(tokenManager, authHandler.DeactivateAccount))
 	mux.HandleFunc("POST /api/v1/auth/logout", middleware.Auth(tokenManager, authHandler.Logout))
+
+	mux.HandleFunc("GET /api/v1/categories", listingHandler.ListCategories)
+	mux.HandleFunc("POST /api/v1/listings", middleware.Auth(tokenManager, listingHandler.Create))
+	mux.HandleFunc("GET /api/v1/listings/me", middleware.Auth(tokenManager, listingHandler.ListMine))
+	mux.HandleFunc("PATCH /api/v1/listings/{id}", middleware.Auth(tokenManager, listingHandler.Update))
+	mux.HandleFunc("PATCH /api/v1/listings/{id}/status", middleware.Auth(tokenManager, listingHandler.PatchStatus))
+	mux.HandleFunc("DELETE /api/v1/listings/{id}", middleware.Auth(tokenManager, listingHandler.Delete))
 
 	handler := observability.RequestMetrics(metrics, logger, withCORS(cfg.CorsOrigin, mux))
 

@@ -14,6 +14,7 @@ migrate:
 	psql "$${DATABASE_URL}" -f migrations/0007_soft_delete_audit.sql
 	psql "$${DATABASE_URL}" -f migrations/0006_notifications.sql
 	psql "$${DATABASE_URL}" -f migrations/0008_updated_by.sql
+	psql "$${DATABASE_URL}" -f migrations/0009_listing_sold_to.sql
 
 seed:
 	psql "$${DATABASE_URL}" -f seeds/001_categories.sql
