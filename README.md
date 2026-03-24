@@ -1,7 +1,7 @@
 # ReSellution
 
 A modern local marketplace platform where users can buy and sell pre-owned items in their city.
-
+ 
 ## Project Description
 ReSellution is a full-stack marketplace application similar to OLX, built with modern web technologies. The platform enables users to:
 - Create accounts and manage profiles
