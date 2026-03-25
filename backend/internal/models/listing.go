@@ -14,22 +14,24 @@ import (
 var ErrListingNotFound = errors.New("listing not found")
 
 type Listing struct {
-	ID             string    `json:"id"`
-	SellerID       string    `json:"seller_id"`
-	CategoryID     *string   `json:"category_id"`
-	Title          string    `json:"title"`
-	Description    string    `json:"description"`
-	Condition      string    `json:"condition"`
-	Price          float64   `json:"price"`
-	Currency       string    `json:"currency"`
-	City           string    `json:"city"`
-	State          string    `json:"state,omitempty"`
-	Status         string    `json:"status"`
-	ViewCount      int       `json:"view_count"`
-	SoldToUserID   *string   `json:"sold_to_user_id,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	Images         []ListingImage `json:"images,omitempty"`
+	ID           string         `json:"id"`
+	SellerID     string         `json:"seller_id"`
+	CategoryID   *string        `json:"category_id"`
+	Title        string         `json:"title"`
+	Description  string         `json:"description"`
+	Condition    string         `json:"condition"`
+	Price        float64        `json:"price"`
+	Currency     string         `json:"currency"`
+	City         string         `json:"city"`
+	State        string         `json:"state,omitempty"`
+	Latitude     *float64       `json:"latitude,omitempty"`
+	Longitude    *float64       `json:"longitude,omitempty"`
+	Status       string         `json:"status"`
+	ViewCount    int            `json:"view_count"`
+	SoldToUserID *string        `json:"sold_to_user_id,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	Images       []ListingImage `json:"images,omitempty"`
 }
 
 type ListingImage struct {
@@ -38,13 +40,6 @@ type ListingImage struct {
 	ImageURL  string    `json:"image_url"`
 	Position  int       `json:"position"`
 	CreatedAt time.Time `json:"created_at"`
-}
-
-type Category struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Slug     string  `json:"slug"`
-	ParentID *string `json:"parent_id"`
 }
 
 type ListingCreate struct {
@@ -56,19 +51,24 @@ type ListingCreate struct {
 	Currency    string
 	City        string
 	State       string
+	Latitude    *float64
+	Longitude   *float64
 	ImageURLs   []string
 }
 
 type ListingPatch struct {
-	Title           *string
-	Description     *string
-	Condition       *string
-	Price           *float64
-	Currency        *string
-	City            *string
-	State           *string
-	CategoryIDSet   bool
-	CategoryID      *string
+	Title          *string
+	Description    *string
+	Condition      *string
+	Price          *float64
+	Currency       *string
+	City           *string
+	State          *string
+	CategoryIDSet  bool
+	CategoryID     *string
+	CoordinatesSet bool
+	Latitude       *float64
+	Longitude      *float64
 }
 
 type ListingStore struct {
@@ -87,34 +87,6 @@ func (s ListingStore) CategoryExists(ctx context.Context, id string) (bool, erro
 	return true, nil
 }
 
-func (s ListingStore) ListCategories(ctx context.Context) ([]Category, error) {
-	query := `
-		SELECT id, name, slug, parent_id
-		FROM categories
-		ORDER BY name
-	`
-	rows, err := s.DB.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []Category
-	for rows.Next() {
-		var c Category
-		var parentID sql.NullString
-		if err := rows.Scan(&c.ID, &c.Name, &c.Slug, &parentID); err != nil {
-			return nil, err
-		}
-		if parentID.Valid {
-			v := parentID.String
-			c.ParentID = &v
-		}
-		out = append(out, c)
-	}
-	return out, rows.Err()
-}
-
 func (s ListingStore) Create(ctx context.Context, sellerID, updatedBy string, in ListingCreate) (Listing, error) {
 	if in.Currency == "" {
 		in.Currency = "INR"
@@ -130,9 +102,9 @@ func (s ListingStore) Create(ctx context.Context, sellerID, updatedBy string, in
 	query := `
 		INSERT INTO listings (
 			id, seller_id, category_id, title, description, condition,
-			price, currency, city, state, status, updated_by
+			price, currency, city, state, latitude, longitude, status, updated_by
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'active', $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'active', $13)
 		RETURNING created_at, updated_at
 	`
 	var cat interface{}
@@ -146,6 +118,18 @@ func (s ListingStore) Create(ctx context.Context, sellerID, updatedBy string, in
 		state = strings.TrimSpace(in.State)
 	} else {
 		state = nil
+	}
+	var latitude interface{}
+	if in.Latitude != nil {
+		latitude = *in.Latitude
+	} else {
+		latitude = nil
+	}
+	var longitude interface{}
+	if in.Longitude != nil {
+		longitude = *in.Longitude
+	} else {
+		longitude = nil
 	}
 
 	var l Listing
@@ -162,12 +146,20 @@ func (s ListingStore) Create(ctx context.Context, sellerID, updatedBy string, in
 	l.Currency = in.Currency
 	l.City = in.City
 	l.State = strings.TrimSpace(in.State)
+	if in.Latitude != nil {
+		value := *in.Latitude
+		l.Latitude = &value
+	}
+	if in.Longitude != nil {
+		value := *in.Longitude
+		l.Longitude = &value
+	}
 	l.Status = "active"
 	l.ViewCount = 0
 
 	err = tx.QueryRowContext(ctx, query,
 		listingID, sellerID, cat, in.Title, in.Description, in.Condition,
-		in.Price, in.Currency, in.City, state, updatedBy,
+		in.Price, in.Currency, in.City, state, latitude, longitude, updatedBy,
 	).Scan(&l.CreatedAt, &l.UpdatedAt)
 	if err != nil {
 		return Listing{}, err
@@ -211,16 +203,17 @@ func (s ListingStore) loadListingWithImages(ctx context.Context, listingID strin
 func (s ListingStore) findByID(ctx context.Context, id string) (Listing, error) {
 	query := `
 		SELECT id, seller_id, category_id, title, description, condition,
-		       price, currency, city, state, status, view_count,
+		       price, currency, city, state, latitude, longitude, status, view_count,
 		       sold_to_user_id, created_at, updated_at
 		FROM listings
 		WHERE id = $1
 	`
 	var l Listing
 	var catID, st, soldTo sql.NullString
+	var latitude, longitude sql.NullFloat64
 	err := s.DB.QueryRowContext(ctx, query, id).Scan(
 		&l.ID, &l.SellerID, &catID, &l.Title, &l.Description, &l.Condition,
-		&l.Price, &l.Currency, &l.City, &st, &l.Status, &l.ViewCount,
+		&l.Price, &l.Currency, &l.City, &st, &latitude, &longitude, &l.Status, &l.ViewCount,
 		&soldTo, &l.CreatedAt, &l.UpdatedAt,
 	)
 	if err != nil {
@@ -235,6 +228,14 @@ func (s ListingStore) findByID(ctx context.Context, id string) (Listing, error) 
 	}
 	if st.Valid {
 		l.State = st.String
+	}
+	if latitude.Valid {
+		value := latitude.Float64
+		l.Latitude = &value
+	}
+	if longitude.Valid {
+		value := longitude.Float64
+		l.Longitude = &value
 	}
 	if soldTo.Valid {
 		v := soldTo.String
@@ -364,16 +365,17 @@ func (s ListingStore) AddListingImage(ctx context.Context, listingID, sellerID, 
 func (s ListingStore) FindOwned(ctx context.Context, id, sellerID string) (Listing, error) {
 	query := `
 		SELECT id, seller_id, category_id, title, description, condition,
-		       price, currency, city, state, status, view_count,
+		       price, currency, city, state, latitude, longitude, status, view_count,
 		       sold_to_user_id, created_at, updated_at
 		FROM listings
 		WHERE id = $1 AND seller_id = $2 AND deleted_at IS NULL
 	`
 	var l Listing
 	var catID, st, soldTo sql.NullString
+	var latitude, longitude sql.NullFloat64
 	err := s.DB.QueryRowContext(ctx, query, id, sellerID).Scan(
 		&l.ID, &l.SellerID, &catID, &l.Title, &l.Description, &l.Condition,
-		&l.Price, &l.Currency, &l.City, &st, &l.Status, &l.ViewCount,
+		&l.Price, &l.Currency, &l.City, &st, &latitude, &longitude, &l.Status, &l.ViewCount,
 		&soldTo, &l.CreatedAt, &l.UpdatedAt,
 	)
 	if err != nil {
@@ -388,6 +390,14 @@ func (s ListingStore) FindOwned(ctx context.Context, id, sellerID string) (Listi
 	}
 	if st.Valid {
 		l.State = st.String
+	}
+	if latitude.Valid {
+		value := latitude.Float64
+		l.Latitude = &value
+	}
+	if longitude.Valid {
+		value := longitude.Float64
+		l.Longitude = &value
 	}
 	if soldTo.Valid {
 		v := soldTo.String
@@ -431,6 +441,17 @@ func (s ListingStore) Update(ctx context.Context, id, sellerID, updatedBy string
 			cur.CategoryID = &v
 		}
 	}
+	if p.CoordinatesSet {
+		if p.Latitude == nil || p.Longitude == nil {
+			cur.Latitude = nil
+			cur.Longitude = nil
+		} else {
+			lat := *p.Latitude
+			lng := *p.Longitude
+			cur.Latitude = &lat
+			cur.Longitude = &lng
+		}
+	}
 
 	var cat interface{}
 	if cur.CategoryID != nil && *cur.CategoryID != "" {
@@ -444,12 +465,24 @@ func (s ListingStore) Update(ctx context.Context, id, sellerID, updatedBy string
 	} else {
 		state = nil
 	}
+	var latitude interface{}
+	if cur.Latitude != nil {
+		latitude = *cur.Latitude
+	} else {
+		latitude = nil
+	}
+	var longitude interface{}
+	if cur.Longitude != nil {
+		longitude = *cur.Longitude
+	} else {
+		longitude = nil
+	}
 
 	query := `
 		UPDATE listings
 		SET title = $3, description = $4, condition = $5, price = $6,
 		    currency = $7, city = $8, state = $9, category_id = $10,
-		    updated_at = NOW(), updated_by = $11
+		    latitude = $11, longitude = $12, updated_at = NOW(), updated_by = $13
 		WHERE id = $1 AND seller_id = $2 AND deleted_at IS NULL
 		RETURNING updated_at
 	`
@@ -457,7 +490,7 @@ func (s ListingStore) Update(ctx context.Context, id, sellerID, updatedBy string
 	err = s.DB.QueryRowContext(ctx, query,
 		id, sellerID,
 		cur.Title, cur.Description, cur.Condition, cur.Price,
-		cur.Currency, cur.City, state, cat, updatedBy,
+		cur.Currency, cur.City, state, cat, latitude, longitude, updatedBy,
 	).Scan(&updatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -609,7 +642,7 @@ func (s ListingStore) ListBySeller(ctx context.Context, sellerID, statusFilter s
 
 	query := fmt.Sprintf(`
 		SELECT id, seller_id, category_id, title, description, condition,
-		       price, currency, city, state, status, view_count,
+		       price, currency, city, state, latitude, longitude, status, view_count,
 		       sold_to_user_id, created_at, updated_at
 		FROM listings
 		WHERE seller_id = $1 AND deleted_at IS NULL%s
@@ -627,9 +660,10 @@ func (s ListingStore) ListBySeller(ctx context.Context, sellerID, statusFilter s
 	for rows.Next() {
 		var l Listing
 		var catID, st, soldTo sql.NullString
+		var latitude, longitude sql.NullFloat64
 		if err := rows.Scan(
 			&l.ID, &l.SellerID, &catID, &l.Title, &l.Description, &l.Condition,
-			&l.Price, &l.Currency, &l.City, &st, &l.Status, &l.ViewCount,
+			&l.Price, &l.Currency, &l.City, &st, &latitude, &longitude, &l.Status, &l.ViewCount,
 			&soldTo, &l.CreatedAt, &l.UpdatedAt,
 		); err != nil {
 			return MyListingsPage{}, err
@@ -640,6 +674,14 @@ func (s ListingStore) ListBySeller(ctx context.Context, sellerID, statusFilter s
 		}
 		if st.Valid {
 			l.State = st.String
+		}
+		if latitude.Valid {
+			value := latitude.Float64
+			l.Latitude = &value
+		}
+		if longitude.Valid {
+			value := longitude.Float64
+			l.Longitude = &value
 		}
 		if soldTo.Valid {
 			v := soldTo.String

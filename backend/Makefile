@@ -1,4 +1,6 @@
-.PHONY: run migrate seed setup
+.PHONY: run migrate seed setup verify-search-plans
+
+DBTOOL := go run ./cmd/dbtool
 
 run:
 	go run ./cmd/server
@@ -6,15 +8,10 @@ run:
 setup: migrate seed
 
 migrate:
-	psql "$${DATABASE_URL}" -f migrations/0001_init.sql
-	psql "$${DATABASE_URL}" -f migrations/0002_password_reset_tokens.sql
-	psql "$${DATABASE_URL}" -f migrations/0003_password_reset_otps.sql
-	psql "$${DATABASE_URL}" -f migrations/0004_add_user_bio.sql
-	psql "$${DATABASE_URL}" -f migrations/0005_b5_constraints_indexes.sql
-	psql "$${DATABASE_URL}" -f migrations/0007_soft_delete_audit.sql
-	psql "$${DATABASE_URL}" -f migrations/0006_notifications.sql
-	psql "$${DATABASE_URL}" -f migrations/0008_updated_by.sql
-	psql "$${DATABASE_URL}" -f migrations/0009_listing_sold_to.sql
+	$(DBTOOL) migrate
 
 seed:
-	psql "$${DATABASE_URL}" -f seeds/001_categories.sql
+	$(DBTOOL) seed
+
+verify-search-plans:
+	$(DBTOOL) verify-search-plans

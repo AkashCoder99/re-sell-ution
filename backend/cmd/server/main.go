@@ -31,6 +31,7 @@ func main() {
 
 	userStore := models.UserStore{DB: database}
 	listingStore := models.ListingStore{DB: database}
+	categoryStore := models.CategoryStore{DB: database}
 	tokenManager := utils.NewTokenManager(cfg.TokenSecret)
 	var emailSender utils.EmailSender
 	if strings.TrimSpace(cfg.SMTPHost) != "" {
@@ -47,6 +48,7 @@ func main() {
 	}
 
 	listingHandler := handlers.ListingHandler{Listings: listingStore}
+	categoryHandler := handlers.CategoryHandler{Categories: categoryStore}
 
 	authHandler := handlers.AuthHandler{
 		Users:                        userStore,
@@ -89,7 +91,9 @@ func main() {
 	mux.HandleFunc("DELETE /api/v1/users/me", middleware.Auth(tokenManager, authHandler.DeactivateAccount))
 	mux.HandleFunc("POST /api/v1/auth/logout", middleware.Auth(tokenManager, authHandler.Logout))
 
-	mux.HandleFunc("GET /api/v1/categories", listingHandler.ListCategories)
+	mux.HandleFunc("GET /api/v1/categories", categoryHandler.List)
+	mux.HandleFunc("GET /api/v1/categories/tree", categoryHandler.Tree)
+	mux.HandleFunc("GET /api/v1/listings/search", listingHandler.Search)
 	mux.HandleFunc("POST /api/v1/listings", middleware.Auth(tokenManager, listingHandler.Create))
 	mux.HandleFunc("GET /api/v1/listings/me", middleware.Auth(tokenManager, listingHandler.ListMine))
 	mux.HandleFunc("PATCH /api/v1/listings/{id}", middleware.Auth(tokenManager, listingHandler.Update))

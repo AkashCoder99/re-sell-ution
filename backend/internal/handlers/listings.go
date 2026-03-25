@@ -44,27 +44,11 @@ var allowedConditions = map[string]struct{}{
 var allowedStatuses = map[string]struct{}{
 	"active": {}, "reserved": {}, "sold": {},
 }
-
 var allowedImageMIMEs = map[string]string{
 	"image/jpeg": ".jpg",
 	"image/png":  ".png",
 	"image/webp": ".webp",
 	"image/gif":  ".gif",
-}
-
-func (h ListingHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
-		return
-	}
-
-	cats, err := h.Listings.ListCategories(r.Context())
-	if err != nil {
-		observability.Error(r.Context(), "listings.categories.failed", map[string]any{"error": err.Error()})
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load categories"})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"categories": cats})
 }
 
 type createListingRequest struct {
@@ -75,6 +59,8 @@ type createListingRequest struct {
 	Currency    string   `json:"currency"`
 	City        string   `json:"city"`
 	State       string   `json:"state"`
+	Latitude    *float64 `json:"latitude"`
+	Longitude   *float64 `json:"longitude"`
 	CategoryID  *string  `json:"category_id"`
 	ImageURLs   []string `json:"image_urls"`
 }
@@ -100,6 +86,8 @@ func (h ListingHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Currency:    strings.TrimSpace(strings.ToUpper(req.Currency)),
 		City:        strings.TrimSpace(req.City),
 		State:       strings.TrimSpace(req.State),
+		Latitude:    req.Latitude,
+		Longitude:   req.Longitude,
 		ImageURLs:   req.ImageURLs,
 	}
 	if req.CategoryID != nil && strings.TrimSpace(*req.CategoryID) != "" {
@@ -185,14 +173,16 @@ func (h ListingHandler) ListMine(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateListingRequest struct {
-	Title        *string         `json:"title"`
-	Description  *string         `json:"description"`
-	Condition    *string         `json:"condition"`
-	Price        *float64        `json:"price"`
-	Currency     *string         `json:"currency"`
-	City         *string         `json:"city"`
-	State        *string         `json:"state"`
-	CategoryJSON json.RawMessage `json:"category_id"`
+	Title         *string         `json:"title"`
+	Description   *string         `json:"description"`
+	Condition     *string         `json:"condition"`
+	Price         *float64        `json:"price"`
+	Currency      *string         `json:"currency"`
+	City          *string         `json:"city"`
+	State         *string         `json:"state"`
+	CategoryJSON  json.RawMessage `json:"category_id"`
+	LatitudeJSON  json.RawMessage `json:"latitude"`
+	LongitudeJSON json.RawMessage `json:"longitude"`
 }
 
 func (h ListingHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -237,9 +227,29 @@ func (h ListingHandler) Update(w http.ResponseWriter, r *http.Request) {
 			patch.CategoryID = &s
 		}
 	}
+	if req.LatitudeJSON != nil || req.LongitudeJSON != nil {
+		if req.LatitudeJSON == nil || req.LongitudeJSON == nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "latitude and longitude must be provided together"})
+			return
+		}
+		patch.CoordinatesSet = true
+
+		lat, err := parseNullableCoordinate(req.LatitudeJSON)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid latitude"})
+			return
+		}
+		lng, err := parseNullableCoordinate(req.LongitudeJSON)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid longitude"})
+			return
+		}
+		patch.Latitude = lat
+		patch.Longitude = lng
+	}
 
 	if patch.Title == nil && patch.Description == nil && patch.Condition == nil && patch.Price == nil &&
-		patch.Currency == nil && patch.City == nil && patch.State == nil && !patch.CategoryIDSet {
+		patch.Currency == nil && patch.City == nil && patch.State == nil && !patch.CategoryIDSet && !patch.CoordinatesSet {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "at least one field is required"})
 		return
 	}
@@ -464,16 +474,16 @@ func (h ListingHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 		imageURL := fmt.Sprintf("%s://%s/uploads/%s", scheme, r.Host, fileName)
 
 		if position < 0 {
-				nextPos, nextPosErr := h.Listings.NextImagePosition(r.Context(), listingID, userID)
-				if nextPosErr != nil {
-					if errors.Is(nextPosErr, models.ErrListingNotFound) {
+			nextPos, nextPosErr := h.Listings.NextImagePosition(r.Context(), listingID, userID)
+			if nextPosErr != nil {
+				if errors.Is(nextPosErr, models.ErrListingNotFound) {
 					writeJSON(w, http.StatusNotFound, map[string]string{"error": "listing not found"})
 					return
 				}
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to choose image position"})
 				return
 			}
-				position = nextPos
+			position = nextPos
 		}
 
 		img, err := h.Listings.AddListingImage(r.Context(), listingID, userID, userID, imageURL, position)
@@ -517,16 +527,16 @@ func (h ListingHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if position < 0 {
-				nextPos, nextPosErr := h.Listings.NextImagePosition(r.Context(), listingID, userID)
-				if nextPosErr != nil {
-					if errors.Is(nextPosErr, models.ErrListingNotFound) {
+			nextPos, nextPosErr := h.Listings.NextImagePosition(r.Context(), listingID, userID)
+			if nextPosErr != nil {
+				if errors.Is(nextPosErr, models.ErrListingNotFound) {
 					writeJSON(w, http.StatusNotFound, map[string]string{"error": "listing not found"})
 					return
 				}
 				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to choose image position"})
 				return
 			}
-				position = nextPos
+			position = nextPos
 		}
 
 		img, err := h.Listings.AddListingImage(r.Context(), listingID, userID, userID, req.ImageURL, position)
@@ -584,6 +594,9 @@ func validateListingCreate(in *models.ListingCreate) error {
 		if _, err := uuid.Parse(*in.CategoryID); err != nil {
 			return errors.New("invalid category_id")
 		}
+	}
+	if err := validateCoordinates(in.Latitude, in.Longitude); err != nil {
+		return err
 	}
 	return nil
 }
@@ -643,7 +656,41 @@ func validateListingPatch(p *models.ListingPatch) error {
 			return errors.New("invalid category_id")
 		}
 	}
+	if p.CoordinatesSet {
+		if err := validateCoordinates(p.Latitude, p.Longitude); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func validateCoordinates(latitude, longitude *float64) error {
+	if (latitude == nil) != (longitude == nil) {
+		return errors.New("latitude and longitude must be provided together")
+	}
+	if latitude == nil && longitude == nil {
+		return nil
+	}
+	if *latitude < -90 || *latitude > 90 {
+		return errors.New("latitude must be between -90 and 90")
+	}
+	if *longitude < -180 || *longitude > 180 {
+		return errors.New("longitude must be between -180 and 180")
+	}
+	return nil
+}
+
+func parseNullableCoordinate(raw json.RawMessage) (*float64, error) {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" || trimmed == "null" {
+		return nil, nil
+	}
+
+	var value float64
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, err
+	}
+	return &value, nil
 }
 
 func validateImageURL(s string) error {
