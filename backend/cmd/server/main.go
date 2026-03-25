@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -60,6 +61,12 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	uploadDir := "./uploads"
+	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
+		log.Printf("failed to create upload dir %s: %v", uploadDir, err)
+	}
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
+
 	metrics := observability.NewMetrics()
 	logger := observability.DefaultLogger()
 
@@ -88,6 +95,7 @@ func main() {
 	mux.HandleFunc("PATCH /api/v1/listings/{id}", middleware.Auth(tokenManager, listingHandler.Update))
 	mux.HandleFunc("PATCH /api/v1/listings/{id}/status", middleware.Auth(tokenManager, listingHandler.PatchStatus))
 	mux.HandleFunc("DELETE /api/v1/listings/{id}", middleware.Auth(tokenManager, listingHandler.Delete))
+	mux.HandleFunc("POST /api/v1/listings/{id}/images", middleware.Auth(tokenManager, listingHandler.UploadImage))
 
 	handler := observability.RequestMetrics(metrics, logger, withCORS(cfg.CorsOrigin, mux))
 

@@ -266,6 +266,100 @@ func (s ListingStore) listImagesByListingID(ctx context.Context, listingID strin
 	return out, rows.Err()
 }
 
+func (s ListingStore) listingOwned(ctx context.Context, listingID, sellerID string) (bool, error) {
+	var n int
+	err := s.DB.QueryRowContext(ctx, `
+		SELECT 1
+		FROM listings
+		WHERE id = $1 AND seller_id = $2 AND deleted_at IS NULL
+	`, listingID, sellerID).Scan(&n)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func (s ListingStore) NextImagePosition(ctx context.Context, listingID, sellerID string) (int, error) {
+	owned, err := s.listingOwned(ctx, listingID, sellerID)
+	if err != nil {
+		return 0, err
+	}
+	if !owned {
+		return 0, ErrListingNotFound
+	}
+
+	// Next slot for this listing (avoids position collisions).
+	var pos int
+	err = s.DB.QueryRowContext(ctx, `
+		SELECT COALESCE(MAX(position) + 1, 0)
+		FROM listing_images
+		WHERE listing_id = $1
+	`, listingID).Scan(&pos)
+	if err != nil {
+		return 0, err
+	}
+	return pos, nil
+}
+
+// AddListingImage inserts a new listing_images row for an owned (non-deleted) listing.
+func (s ListingStore) AddListingImage(ctx context.Context, listingID, sellerID, updatedBy, imageURL string, position int) (ListingImage, error) {
+	if position < 0 {
+		return ListingImage{}, errors.New("position must be non-negative")
+	}
+
+	owned, err := s.listingOwned(ctx, listingID, sellerID)
+	if err != nil {
+		return ListingImage{}, err
+	}
+	if !owned {
+		return ListingImage{}, ErrListingNotFound
+	}
+
+	imgID := uuid.NewString()
+
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return ListingImage{}, err
+	}
+	defer tx.Rollback()
+
+	insertQuery := `
+		INSERT INTO listing_images (id, listing_id, image_url, position)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, listing_id, image_url, position, created_at
+	`
+
+	var img ListingImage
+	if err := tx.QueryRowContext(ctx, insertQuery, imgID, listingID, imageURL, position).Scan(
+		&img.ID,
+		&img.ListingID,
+		&img.ImageURL,
+		&img.Position,
+		&img.CreatedAt,
+	); err != nil {
+		return ListingImage{}, err
+	}
+
+	// Touch listing audit fields.
+	updateQuery := `
+		UPDATE listings
+		SET updated_at = NOW(), updated_by = $3
+		WHERE id = $1 AND seller_id = $2 AND deleted_at IS NULL
+	`
+	if _, err := tx.ExecContext(ctx, updateQuery, listingID, sellerID, updatedBy); err != nil {
+		return ListingImage{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return ListingImage{}, err
+	}
+
+	return img, nil
+}
+
 // FindOwned returns a non-deleted listing if it exists and belongs to sellerID.
 func (s ListingStore) FindOwned(ctx context.Context, id, sellerID string) (Listing, error) {
 	query := `

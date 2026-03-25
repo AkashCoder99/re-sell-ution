@@ -515,3 +515,22 @@ export function uploadListingImage(
     body: JSON.stringify(payload)
   })
 }
+
+export function uploadListingImageFile(
+  token: string,
+  listingId: string,
+  file: File,
+  payload: { position?: number } = {}
+): Promise<UploadImageResponse> {
+  const form = new FormData()
+  form.append('file', file)
+  if (payload.position !== undefined) {
+    form.append('position', String(payload.position))
+  }
+
+  return request<UploadImageResponse>(`/api/v1/listings/${listingId}/images`, {
+    method: 'POST',
+    token,
+    body: form
+  })
+}

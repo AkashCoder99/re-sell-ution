@@ -13,7 +13,12 @@ import {
 } from '../utils/validation'
 import PhotoUpload, { type PhotoItem } from './PhotoUpload'
 import type { Category } from '../types/listing'
-import { getCategories, createListing } from '../api/listings'
+import {
+  createListing,
+  deleteListing,
+  getCategories,
+  uploadListingImageFile
+} from '../api/listings'
 import { IconAddListing } from './Icons'
 
 const STEPS = ['basic', 'details', 'photos', 'review'] as const
@@ -52,6 +57,8 @@ export default function CreateListing({
   const [photos, setPhotos] = useState<PhotoItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
+  const [stepLoading, setStepLoading] = useState(false)
+  const [createdListingId, setCreatedListingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
@@ -84,39 +91,96 @@ export default function CreateListing({
     return Object.keys(errs).length === 0
   }
 
-  const goNext = () => {
+  const goNext = async () => {
     setError('')
     setFieldErrors({})
     if (step === 'basic' && !validateBasic()) return
     if (step === 'details' && !validateDetails()) return
-    // Auto-trigger upload for any pending photos before moving to review
-    if (step === 'photos') {
-      const pendingPhotos = photos.filter((p) => p.status === 'pending' && p.file)
-      if (pendingPhotos.length > 0) {
-        // Mark all pending as uploading, then resolve them
-        setPhotos((prev) =>
-          prev.map((p) =>
-            p.status === 'pending' ? { ...p, status: 'uploading' as const, progress: 50 } : p
-          )
-        )
-        Promise.all(
-          pendingPhotos.map(async (p) => {
-            await new Promise((r) => setTimeout(r, 600))
-            return p.id
-          })
-        ).then((ids) => {
-          setPhotos((prev) =>
-            prev.map((p) =>
-              ids.includes(p.id)
-                ? { ...p, status: 'done' as const, progress: 100, url: p.preview }
-                : p
-            )
-          )
-          setStep('review')
-        })
+
+    // details -> photos: create listing (no images yet)
+    if (step === 'details') {
+      if (createdListingId) {
+        setStep('photos')
         return
       }
+
+      setStepLoading(true)
+      try {
+        const res = await createListing(token, {
+          title: draft.title.trim(),
+          description: draft.description.trim(),
+          condition: draft.condition as ListingCondition,
+          price: Number(draft.price),
+          currency: draft.currency,
+          city: draft.city.trim(),
+          state: draft.state.trim() || undefined,
+          category_id: draft.category_id || undefined,
+          image_urls: []
+        })
+        setCreatedListingId(res.listing.id)
+        setStep('photos')
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to create listing')
+      } finally {
+        setStepLoading(false)
+      }
+      return
     }
+
+    // photos -> review: upload images (persist listing_images) then go to review
+    if (step === 'photos') {
+      if (!createdListingId) {
+        setError('Listing was not created yet. Please go back and retry.')
+        return
+      }
+
+      const pendingWithIndex = photos
+        .map((p, idx) => ({ p, idx }))
+        .filter(({ p }) => p.status === 'pending' && p.file)
+
+      if (pendingWithIndex.length === 0) {
+        setStep('review')
+        return
+      }
+
+      setStepLoading(true)
+      try {
+        for (const { p } of pendingWithIndex) {
+          if (!p.file) continue
+
+          setPhotos((prev) =>
+            prev.map((x) =>
+              x.id === p.id ? { ...x, status: 'uploading' as const, progress: 50, error: undefined } : x
+            )
+          )
+
+          // Let the backend pick the next available position to avoid collisions.
+          const res = await uploadListingImageFile(token, createdListingId, p.file)
+
+          setPhotos((prev) =>
+            prev.map((x) =>
+              x.id === p.id
+                ? { ...x, status: 'done' as const, progress: 100, url: res.image.image_url, error: undefined }
+                : x
+            )
+          )
+        }
+
+        setStep('review')
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Photo upload failed'
+        setError(message)
+        setPhotos((prev) =>
+          prev.map((x) =>
+            x.status === 'pending' ? { ...x, status: 'failed' as const, error: message } : x
+          )
+        )
+      } finally {
+        setStepLoading(false)
+      }
+      return
+    }
+
     const nextIdx = stepIndex + 1
     if (nextIdx < STEPS.length) setStep(STEPS[nextIdx])
   }
@@ -136,28 +200,16 @@ export default function CreateListing({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (step !== 'review') {
-      goNext()
+      await goNext()
       return
     }
 
     setLoading(true)
     setError('')
     try {
-      // Accept any photo that has a preview URL (blob or uploaded), regardless of status
-      const image_urls = photos
-        .filter((p) => p.url || p.preview)
-        .map((p) => p.url || p.preview)
-      await createListing(token, {
-        title: draft.title.trim(),
-        description: draft.description.trim(),
-        condition: draft.condition as ListingCondition,
-        price: Number(draft.price),
-        currency: draft.currency,
-        city: draft.city.trim(),
-        state: draft.state.trim() || undefined,
-        category_id: draft.category_id || undefined,
-        image_urls
-      })
+      if (!createdListingId) {
+        throw new Error('Listing was not created yet')
+      }
       onSuccess()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create listing')
@@ -330,9 +382,11 @@ export default function CreateListing({
                 onChange={setPhotos}
                 maxFiles={10}
                 onUpload={async (file) => {
-                  // Simulate upload delay then return object URL as the "hosted" URL
-                  await new Promise((r) => setTimeout(r, 600))
-                  return URL.createObjectURL(file)
+                  if (!createdListingId) {
+                    throw new Error('Listing was not created yet')
+                  }
+                  const res = await uploadListingImageFile(token, createdListingId, file)
+                  return res.image.image_url
                 }}
               />
             </div>
@@ -384,12 +438,34 @@ export default function CreateListing({
               Back
             </button>
           ) : (
-            <button type="button" className="profile-edit-btn secondary" onClick={onCancel}>
+            <button
+              type="button"
+              className="profile-edit-btn secondary"
+              onClick={async () => {
+                // Avoid leaving an empty active listing behind if the user cancels early.
+                if (createdListingId) {
+                  try {
+                    await deleteListing(token, createdListingId)
+                  } catch {
+                    // Best-effort cleanup.
+                  }
+                }
+                onCancel()
+              }}
+              disabled={stepLoading}
+            >
               Cancel
             </button>
           )}
           {step !== 'review' ? (
-            <button type="button" className="profile-edit-btn primary" onClick={goNext}>
+            <button
+              type="button"
+              className="profile-edit-btn primary"
+              onClick={() => {
+                void goNext()
+              }}
+              disabled={stepLoading}
+            >
               Next
             </button>
           ) : (

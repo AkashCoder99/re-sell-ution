@@ -3,8 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -29,6 +33,8 @@ const (
 	maxListingStateLen       = 100
 	maxImageURLLen           = 2048
 	maxListingPrice          = 999999999.99
+
+	maxUploadBytes = 5 * 1024 * 1024 // 5MB (matches frontend PhotoUpload)
 )
 
 var allowedConditions = map[string]struct{}{
@@ -37,6 +43,13 @@ var allowedConditions = map[string]struct{}{
 
 var allowedStatuses = map[string]struct{}{
 	"active": {}, "reserved": {}, "sold": {},
+}
+
+var allowedImageMIMEs = map[string]string{
+	"image/jpeg": ".jpg",
+	"image/png":  ".png",
+	"image/webp": ".webp",
+	"image/gif":  ".gif",
 }
 
 func (h ListingHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
@@ -361,6 +374,176 @@ func (h ListingHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "deleted"})
+}
+
+type uploadImageJSONRequest struct {
+	ImageURL string `json:"image_url"`
+	Position *int   `json:"position"`
+}
+
+// UploadImage implements B8 image upload (multipart) and persists metadata in listing_images.
+// For now, it stores files locally in ./uploads and returns a hosted URL like /uploads/<file>.
+func (h ListingHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	listingID := r.PathValue("id")
+	if _, err := uuid.Parse(listingID); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid listing id"})
+		return
+	}
+
+	ct := r.Header.Get("Content-Type")
+
+	// multipart: file upload
+	if strings.HasPrefix(ct, "multipart/form-data") {
+		// Limit multipart parsing memory/disk usage.
+		if err := r.ParseMultipartForm(maxUploadBytes * 2); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to parse multipart form"})
+			return
+		}
+
+		position := -1
+		if posStr := strings.TrimSpace(r.FormValue("position")); posStr != "" {
+			n, err := strconv.Atoi(posStr)
+			if err != nil || n < 0 {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid position"})
+				return
+			}
+			position = n
+		}
+
+		f, _, err := r.FormFile("file")
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "missing file field"})
+			return
+		}
+		defer f.Close()
+
+		data, err := io.ReadAll(io.LimitReader(f, maxUploadBytes+1))
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "failed to read file"})
+			return
+		}
+		if len(data) > maxUploadBytes {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "file too large (max 5MB)"})
+			return
+		}
+
+		// Optional scanning hook (stub for now).
+		// TODO: integrate AV scanning or content policy checks if required.
+		_ = data
+
+		mimeType := http.DetectContentType(data)
+		ext, ok := allowedImageMIMEs[mimeType]
+		if !ok {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unsupported image type"})
+			return
+		}
+
+		uploadDir := "./uploads"
+		if err := os.MkdirAll(uploadDir, 0o755); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to initialize upload storage"})
+			return
+		}
+
+		fileName := fmt.Sprintf("%s_%s%s", listingID, uuid.NewString(), ext)
+		dstPath := filepath.Join(uploadDir, fileName)
+		if err := os.WriteFile(dstPath, data, 0o644); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to save file"})
+			return
+		}
+
+		scheme := "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+		imageURL := fmt.Sprintf("%s://%s/uploads/%s", scheme, r.Host, fileName)
+
+		if position < 0 {
+				nextPos, nextPosErr := h.Listings.NextImagePosition(r.Context(), listingID, userID)
+				if nextPosErr != nil {
+					if errors.Is(nextPosErr, models.ErrListingNotFound) {
+					writeJSON(w, http.StatusNotFound, map[string]string{"error": "listing not found"})
+					return
+				}
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to choose image position"})
+				return
+			}
+				position = nextPos
+		}
+
+		img, err := h.Listings.AddListingImage(r.Context(), listingID, userID, userID, imageURL, position)
+		if err != nil {
+			if errors.Is(err, models.ErrListingNotFound) {
+				writeJSON(w, http.StatusNotFound, map[string]string{"error": "listing not found"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to persist listing image"})
+			return
+		}
+
+		writeJSON(w, http.StatusCreated, map[string]any{"image": img})
+		return
+	}
+
+	// json: accept image_url directly (useful for mock mode / non-file clients)
+	if strings.HasPrefix(ct, "application/json") || ct == "" {
+		var req uploadImageJSONRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+			return
+		}
+		req.ImageURL = strings.TrimSpace(req.ImageURL)
+		if req.ImageURL == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "image_url is required"})
+			return
+		}
+		if err := validateImageURL(req.ImageURL); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+
+		position := -1
+		if req.Position != nil {
+			if *req.Position < 0 {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid position"})
+				return
+			}
+			position = *req.Position
+		}
+
+		if position < 0 {
+				nextPos, nextPosErr := h.Listings.NextImagePosition(r.Context(), listingID, userID)
+				if nextPosErr != nil {
+					if errors.Is(nextPosErr, models.ErrListingNotFound) {
+					writeJSON(w, http.StatusNotFound, map[string]string{"error": "listing not found"})
+					return
+				}
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to choose image position"})
+				return
+			}
+				position = nextPos
+		}
+
+		img, err := h.Listings.AddListingImage(r.Context(), listingID, userID, userID, req.ImageURL, position)
+		if err != nil {
+			if errors.Is(err, models.ErrListingNotFound) {
+				writeJSON(w, http.StatusNotFound, map[string]string{"error": "listing not found"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to persist listing image"})
+			return
+		}
+
+		writeJSON(w, http.StatusCreated, map[string]any{"image": img})
+		return
+	}
+
+	writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "unsupported content type"})
 }
 
 func validateListingCreate(in *models.ListingCreate) error {
