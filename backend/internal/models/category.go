@@ -6,6 +6,54 @@ import (
 	"sort"
 )
 
+var canonicalCategorySlugs = map[string]struct{}{
+	"mobiles-tablets":        {},
+	"electronics-appliances": {},
+	"furniture":              {},
+	"home-garden":            {},
+	"fashion":                {},
+	"vehicles":               {},
+	"books-sports-hobbies":   {},
+	"kids":                   {},
+	"pets":                   {},
+	"services":               {},
+	"smartphones":            {},
+	"tablets":                {},
+	"mobile-accessories":     {},
+	"laptops-computers":      {},
+	"tv-video-audio":         {},
+	"cameras-accessories":    {},
+	"home-appliances":        {},
+	"sofas-chairs":           {},
+	"beds-wardrobes":         {},
+	"tables-dining":          {},
+	"kitchen-dining":         {},
+	"decor-lighting":         {},
+	"garden-tools":           {},
+	"fashion-men":            {},
+	"fashion-women":          {},
+	"fashion-accessories":    {},
+	"cars":                   {},
+	"motorcycles":            {},
+	"bicycles":               {},
+	"books":                  {},
+	"sports-equipment":       {},
+	"music-hobbies":          {},
+	"baby-gear":              {},
+	"toys-games":             {},
+	"kids-fashion":           {},
+	"pet-supplies":           {},
+	"pet-adoption":           {},
+	"home-services":          {},
+	"repairs":                {},
+	"tuition":                {},
+}
+
+func isCanonicalCategorySlug(slug string) bool {
+	_, ok := canonicalCategorySlugs[slug]
+	return ok
+}
+
 type Category struct {
 	ID       string  `json:"id"`
 	Name     string  `json:"name"`
@@ -46,6 +94,9 @@ func (s CategoryStore) List(ctx context.Context) ([]Category, error) {
 		if parentID.Valid {
 			value := parentID.String
 			c.ParentID = &value
+		}
+		if !isCanonicalCategorySlug(c.Slug) {
+			continue
 		}
 		out = append(out, c)
 	}

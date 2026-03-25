@@ -27,3 +27,12 @@ func TestBuildCategoryTree(t *testing.T) {
 		t.Fatalf("expected sorted child nodes, got %+v", []string{tree[0].Children[0].Name, tree[0].Children[1].Name})
 	}
 }
+
+func TestIsCanonicalCategorySlug(t *testing.T) {
+	if !isCanonicalCategorySlug("mobiles-tablets") {
+		t.Fatal("expected canonical OLX slug to be allowed")
+	}
+	if isCanonicalCategorySlug("electronics") {
+		t.Fatal("expected legacy slug to be filtered out")
+	}
+}
