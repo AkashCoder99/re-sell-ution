@@ -2310,6 +2310,224 @@ textarea:focus {
   justify-content: flex-end;
 }
 
+.listing-details-modal {
+  width: min(920px, 96vw);
+  padding: 0;
+}
+
+.listing-details {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.5rem;
+}
+
+.listing-details-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.listing-details-close {
+  border: none;
+  background: var(--gray-100);
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.listing-details-unavailable {
+  padding: 0.75rem 1rem;
+  border: 1px solid #fecaca;
+  background: #fee2e2;
+  border-radius: 12px;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.listing-details-gallery {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.listing-details-image-wrap {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--gray-100);
+}
+
+.listing-details-image-wrap img {
+  width: 100%;
+  height: 360px;
+  object-fit: cover;
+  display: block;
+}
+
+.listing-details-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: rgba(15, 23, 42, 0.55);
+  color: white;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.listing-details-nav.prev {
+  left: 12px;
+}
+
+.listing-details-nav.next {
+  right: 12px;
+}
+
+.listing-details-placeholder {
+  display: grid;
+  place-items: center;
+  height: 280px;
+  border-radius: 16px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.listing-details-placeholder-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.listing-details-thumbs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.listing-details-thumb {
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.listing-details-thumb img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  display: block;
+}
+
+.listing-details-thumb.active {
+  border-color: var(--primary);
+}
+
+.listing-details-body h2 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.listing-details-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.listing-details-status {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: var(--gray-100);
+  color: var(--gray-700);
+  font-weight: 600;
+}
+
+.listing-details-status.sold {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.listing-details-status.deleted {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.listing-details-price {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin: 0.5rem 0 0.25rem;
+}
+
+.listing-details-meta {
+  margin: 0;
+  color: var(--gray-600);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.listing-details-meta-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.listing-details-dot {
+  color: var(--gray-400);
+}
+
+.listing-details-condition {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--gray-700);
+}
+
+.listing-details-desc {
+  margin: 0 0 1rem;
+  color: var(--gray-700);
+  line-height: 1.6;
+}
+
+.listing-details-seller {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: var(--gray-50);
+  margin-bottom: 1rem;
+}
+
+.listing-details-seller-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--gray-600);
+}
+
+.listing-details-seller-name {
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.listing-details-seller-meta {
+  color: var(--gray-600);
+  font-size: 0.85rem;
+}
+
+.listing-details-actions {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
 .profile-search-bar {
   display: grid;
   gap: 0.75rem;
@@ -2361,6 +2579,10 @@ textarea:focus {
 
   .search-filter-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .listing-details-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

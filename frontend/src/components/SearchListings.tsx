@@ -4,6 +4,7 @@ import type { Category, Listing } from '../types/listing'
 import { LISTING_CONDITIONS } from '../types/listing'
 import { getCategories, searchListings } from '../api/listings'
 import { IconBack, IconSearch } from './Icons'
+import ListingDetails from './ListingDetails'
 
 interface SearchListingsProps {
   token: string
@@ -172,6 +173,38 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
   const conditionLabel =
     filters.condition && LISTING_CONDITIONS.find((c) => c.value === filters.condition)?.label
 
+  const mockPreviewListing: Listing = {
+    id: 'preview_listing',
+    seller_id: 'demo_seller',
+    category_id: null,
+    title: 'Vintage Desk Lamp',
+    description:
+      'A classic metal desk lamp with adjustable arm. Fully functional and in great condition.',
+    condition: 'good',
+    price: 1500,
+    currency: 'INR',
+    city: userCity || 'Your City',
+    state: null,
+    status: 'active',
+    view_count: 0,
+    created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date().toISOString(),
+    images: [
+      {
+        id: 'preview_img_1',
+        listing_id: 'preview_listing',
+        image_url: 'https://placehold.co/800x600?text=Lamp+1',
+        position: 0
+      },
+      {
+        id: 'preview_img_2',
+        listing_id: 'preview_listing',
+        image_url: 'https://placehold.co/800x600?text=Lamp+2',
+        position: 1
+      }
+    ]
+  }
+
   useEffect(() => {
     setPage(1)
   }, [filters, results])
@@ -184,6 +217,13 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
           <p className="search-subtitle">Find items for sale near you.</p>
         </div>
         <div className="search-header-actions">
+          <button
+            type="button"
+            className="profile-edit-btn secondary"
+            onClick={() => setSelected(mockPreviewListing)}
+          >
+            Preview Listing
+          </button>
           <button type="button" className="profile-edit-btn secondary" onClick={() => {
             setDraftFilters(filters)
             setShowFilters(true)
@@ -479,21 +519,8 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
 
       {selected && (
         <div className="search-modal-overlay" role="dialog" aria-modal="true">
-          <div className="search-modal">
-            <div className="search-modal-header">
-              <h3>{selected.title}</h3>
-              <button type="button" className="search-modal-close" onClick={() => setSelected(null)}>
-                x
-              </button>
-            </div>
-            <p className="search-modal-price">INR {Number(selected.price).toLocaleString()}</p>
-            <p className="search-modal-meta">{selected.city}</p>
-            <p className="search-modal-desc">{selected.description}</p>
-            <div className="search-modal-actions">
-              <button type="button" className="profile-edit-btn secondary" onClick={() => setSelected(null)}>
-                Close
-              </button>
-            </div>
+          <div className="search-modal listing-details-modal">
+            <ListingDetails listing={selected} onClose={() => setSelected(null)} />
           </div>
         </div>
       )}
