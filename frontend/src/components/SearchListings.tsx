@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import type { Listing } from '../types/listing'
-import { searchListings } from '../api/listings'
+import type { Category, Listing } from '../types/listing'
+import { LISTING_CONDITIONS } from '../types/listing'
+import { getCategories, searchListings } from '../api/listings'
 import { IconBack, IconSearch } from './Icons'
 
 interface SearchListingsProps {
@@ -12,8 +13,29 @@ interface SearchListingsProps {
 
 const RECENT_KEY = 'resellution_recent_searches'
 const PREFILL_KEY = 'resellution_search_prefill'
+const FILTERS_KEY = 'resellution_search_filters'
 const MAX_RECENT = 6
 const PAGE_SIZE = 8
+
+type SortOption = 'newest' | 'price_low' | 'price_high'
+
+type Filters = {
+  minPrice: string
+  maxPrice: string
+  categoryId: string
+  condition: string
+  city: string
+  sort: SortOption
+}
+
+const defaultFilters: Filters = {
+  minPrice: '',
+  maxPrice: '',
+  categoryId: '',
+  condition: '',
+  city: '',
+  sort: 'newest'
+}
 
 function loadRecent(): string[] {
   try {
@@ -38,6 +60,7 @@ function saveRecent(list: string[]) {
 export default function SearchListings({ token, userCity, onBack }: SearchListingsProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Listing[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [hasSearched, setHasSearched] = useState(false)
@@ -46,9 +69,16 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
   const [lastQuery, setLastQuery] = useState('')
   const [showRecent, setShowRecent] = useState(false)
   const [selected, setSelected] = useState<Listing | null>(null)
+  const [filters, setFilters] = useState<Filters>(defaultFilters)
+  const [draftFilters, setDraftFilters] = useState<Filters>(defaultFilters)
+  const [showFilters, setShowFilters] = useState(false)
+  const [filtering, setFiltering] = useState(false)
 
   useEffect(() => {
     setRecent(loadRecent())
+    getCategories(token)
+      .then((res) => setCategories(res.categories))
+      .catch(() => setCategories([]))
     try {
       const prefill = localStorage.getItem(PREFILL_KEY) || ''
       if (prefill) {
@@ -56,10 +86,17 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
         localStorage.removeItem(PREFILL_KEY)
         void runSearch(prefill)
       }
+      const savedFilters = localStorage.getItem(FILTERS_KEY)
+      if (savedFilters) {
+        const parsed = JSON.parse(savedFilters) as Partial<Filters>
+        const merged = { ...defaultFilters, ...parsed }
+        setFilters(merged)
+        setDraftFilters(merged)
+      }
     } catch {
       // ignore localStorage failures
     }
-  }, [])
+  }, [token])
 
   const trimmedQuery = useMemo(() => query.trim(), [query])
 
@@ -95,8 +132,49 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
     void runSearch(query)
   }
 
-  const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE))
-  const pagedResults = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const filteredResults = useMemo(() => {
+    const min = filters.minPrice ? Number(filters.minPrice) : null
+    const max = filters.maxPrice ? Number(filters.maxPrice) : null
+    return results.filter((listing) => {
+      if (filters.categoryId && listing.category_id !== filters.categoryId) return false
+      if (filters.condition && listing.condition !== filters.condition) return false
+      if (filters.city && listing.city.toLowerCase() !== filters.city.toLowerCase()) return false
+      if (min !== null && Number(listing.price) < min) return false
+      if (max !== null && Number(listing.price) > max) return false
+      return true
+    })
+  }, [results, filters])
+
+  const sortedResults = useMemo(() => {
+    const list = [...filteredResults]
+    if (filters.sort === 'price_low') {
+      list.sort((a, b) => Number(a.price) - Number(b.price))
+    } else if (filters.sort === 'price_high') {
+      list.sort((a, b) => Number(b.price) - Number(a.price))
+    } else {
+      list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    }
+    return list
+  }, [filteredResults, filters.sort])
+
+  const totalPages = Math.max(1, Math.ceil(sortedResults.length / PAGE_SIZE))
+  const pagedResults = sortedResults.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const hasActiveFilters =
+    filters.minPrice ||
+    filters.maxPrice ||
+    filters.categoryId ||
+    filters.condition ||
+    filters.city ||
+    filters.sort !== 'newest'
+
+  const categoryLabel =
+    filters.categoryId && categories.find((c) => c.id === filters.categoryId)?.name
+  const conditionLabel =
+    filters.condition && LISTING_CONDITIONS.find((c) => c.value === filters.condition)?.label
+
+  useEffect(() => {
+    setPage(1)
+  }, [filters, results])
 
   return (
     <div className="search-page">
@@ -105,10 +183,18 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
           <h2 className="search-title">Search Listings</h2>
           <p className="search-subtitle">Find items for sale near you.</p>
         </div>
-        <button type="button" className="back-link-btn" onClick={onBack}>
-          <IconBack className="back-link-icon" aria-hidden />
-          <span>Back to Profile</span>
-        </button>
+        <div className="search-header-actions">
+          <button type="button" className="profile-edit-btn secondary" onClick={() => {
+            setDraftFilters(filters)
+            setShowFilters(true)
+          }}>
+            Filters
+          </button>
+          <button type="button" className="back-link-btn" onClick={onBack}>
+            <IconBack className="back-link-icon" aria-hidden />
+            <span>Back to Profile</span>
+          </button>
+        </div>
       </div>
 
       <form className="search-bar" onSubmit={handleSubmit}>
@@ -136,6 +222,121 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
           Search
         </button>
       </form>
+
+      <div className="search-controls">
+        <label className="search-sort">
+          <span>Sort by</span>
+          <select
+            value={filters.sort}
+            onChange={(e) => {
+              const next = { ...filters, sort: e.target.value as SortOption }
+              setFilters(next)
+              setDraftFilters(next)
+              localStorage.setItem(FILTERS_KEY, JSON.stringify(next))
+              setFiltering(true)
+              setTimeout(() => setFiltering(false), 150)
+            }}
+          >
+            <option value="newest">Newest</option>
+            <option value="price_low">Price: Low to High</option>
+            <option value="price_high">Price: High to Low</option>
+          </select>
+        </label>
+      </div>
+
+      {hasActiveFilters && (
+        <div className="search-applied">
+          <div className="search-applied-title">Applied filters</div>
+          <div className="search-applied-list">
+            {filters.minPrice && (
+              <button
+                type="button"
+                className="search-filter-chip"
+                onClick={() => {
+                  const next = { ...filters, minPrice: '' }
+                  setFilters(next)
+                  setDraftFilters(next)
+                  localStorage.setItem(FILTERS_KEY, JSON.stringify(next))
+                }}
+              >
+                Min {filters.minPrice}
+                <span>x</span>
+              </button>
+            )}
+            {filters.maxPrice && (
+              <button
+                type="button"
+                className="search-filter-chip"
+                onClick={() => {
+                  const next = { ...filters, maxPrice: '' }
+                  setFilters(next)
+                  setDraftFilters(next)
+                  localStorage.setItem(FILTERS_KEY, JSON.stringify(next))
+                }}
+              >
+                Max {filters.maxPrice}
+                <span>x</span>
+              </button>
+            )}
+            {filters.categoryId && (
+              <button
+                type="button"
+                className="search-filter-chip"
+                onClick={() => {
+                  const next = { ...filters, categoryId: '' }
+                  setFilters(next)
+                  setDraftFilters(next)
+                  localStorage.setItem(FILTERS_KEY, JSON.stringify(next))
+                }}
+              >
+                {categoryLabel || 'Category'}
+                <span>x</span>
+              </button>
+            )}
+            {filters.condition && (
+              <button
+                type="button"
+                className="search-filter-chip"
+                onClick={() => {
+                  const next = { ...filters, condition: '' }
+                  setFilters(next)
+                  setDraftFilters(next)
+                  localStorage.setItem(FILTERS_KEY, JSON.stringify(next))
+                }}
+              >
+                {conditionLabel || 'Condition'}
+                <span>x</span>
+              </button>
+            )}
+            {filters.city && (
+              <button
+                type="button"
+                className="search-filter-chip"
+                onClick={() => {
+                  const next = { ...filters, city: '' }
+                  setFilters(next)
+                  setDraftFilters(next)
+                  localStorage.setItem(FILTERS_KEY, JSON.stringify(next))
+                }}
+              >
+                City
+                <span>x</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="search-filter-clear"
+              onClick={() => {
+                setFilters(defaultFilters)
+                setDraftFilters(defaultFilters)
+                localStorage.setItem(FILTERS_KEY, JSON.stringify(defaultFilters))
+              }}
+            >
+              Clear all
+            </button>
+          </div>
+        </div>
+      )}
 
       {showRecent && trimmedQuery.length === 0 && recent.length > 0 && (
         <div className="search-recent">
@@ -175,7 +376,7 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
                     saveRecent(updated)
                   }}
                 >
-                  ×
+                  x
                 </button>
               </div>
             ))}
@@ -198,7 +399,7 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
         </div>
       )}
 
-      {loading && (
+      {(loading || filtering) && (
         <div className="search-state">
           <div className="search-skeleton" />
           <div className="search-skeleton" />
@@ -206,16 +407,23 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
         </div>
       )}
 
-      {!loading && hasSearched && results.length === 0 && !error && (
+      {!loading && !filtering && hasSearched && results.length === 0 && !error && (
         <div className="search-empty">
           <h3>No matches yet</h3>
           <p>Try a different keyword or broaden your search.</p>
         </div>
       )}
 
-      {!loading && results.length > 0 && (
+      {!loading && !filtering && results.length > 0 && sortedResults.length === 0 && (
+        <div className="search-empty">
+          <h3>No listings match these filters</h3>
+          <p>Try removing a filter or expanding the price range.</p>
+        </div>
+      )}
+
+      {!loading && !filtering && sortedResults.length > 0 && (
         <div className="search-results">
-          <div className="search-results-title">Results ({results.length})</div>
+          <div className="search-results-title">Results ({sortedResults.length})</div>
           <ul className="search-results-grid">
             {pagedResults.map((listing) => (
               <li
@@ -275,7 +483,7 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
             <div className="search-modal-header">
               <h3>{selected.title}</h3>
               <button type="button" className="search-modal-close" onClick={() => setSelected(null)}>
-                ×
+                x
               </button>
             </div>
             <p className="search-modal-price">INR {Number(selected.price).toLocaleString()}</p>
@@ -284,6 +492,102 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
             <div className="search-modal-actions">
               <button type="button" className="profile-edit-btn secondary" onClick={() => setSelected(null)}>
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFilters && (
+        <div className="search-modal-overlay" role="dialog" aria-modal="true">
+          <div className="search-modal search-filter-modal">
+            <div className="search-modal-header">
+              <h3>Filters</h3>
+              <button type="button" className="search-modal-close" onClick={() => setShowFilters(false)}>
+                x
+              </button>
+            </div>
+            <div className="search-filter-grid">
+              <label>
+                Min price
+                <input
+                  type="number"
+                  value={draftFilters.minPrice}
+                  onChange={(e) => setDraftFilters((prev) => ({ ...prev, minPrice: e.target.value }))}
+                  placeholder="0"
+                  min={0}
+                />
+              </label>
+              <label>
+                Max price
+                <input
+                  type="number"
+                  value={draftFilters.maxPrice}
+                  onChange={(e) => setDraftFilters((prev) => ({ ...prev, maxPrice: e.target.value }))}
+                  placeholder="50000"
+                  min={0}
+                />
+              </label>
+              <label>
+                Category
+                <select
+                  value={draftFilters.categoryId}
+                  onChange={(e) => setDraftFilters((prev) => ({ ...prev, categoryId: e.target.value }))}
+                >
+                  <option value="">All</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Condition
+                <select
+                  value={draftFilters.condition}
+                  onChange={(e) => setDraftFilters((prev) => ({ ...prev, condition: e.target.value }))}
+                >
+                  <option value="">All</option>
+                  {LISTING_CONDITIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                City
+                <input
+                  type="text"
+                  value={draftFilters.city}
+                  onChange={(e) => setDraftFilters((prev) => ({ ...prev, city: e.target.value }))}
+                  placeholder={userCity || 'City'}
+                />
+              </label>
+            </div>
+            <div className="search-filter-actions">
+              <button
+                type="button"
+                className="profile-edit-btn secondary"
+                onClick={() => {
+                  setDraftFilters(defaultFilters)
+                }}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                className="profile-edit-btn primary"
+                onClick={() => {
+                  setFilters(draftFilters)
+                  localStorage.setItem(FILTERS_KEY, JSON.stringify(draftFilters))
+                  setFiltering(true)
+                  setTimeout(() => setFiltering(false), 150)
+                  setShowFilters(false)
+                }}
+              >
+                Apply filters
               </button>
             </div>
           </div>

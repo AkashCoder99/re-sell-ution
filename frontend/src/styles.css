@@ -1828,6 +1828,13 @@ textarea:focus {
   flex-wrap: wrap;
 }
 
+.search-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .search-title {
   margin: 0 0 0.25rem;
   font-size: 1.75rem;
@@ -1904,6 +1911,72 @@ textarea:focus {
   font-weight: 600;
   color: var(--gray-600);
   margin: 0;
+}
+
+.search-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.search-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--gray-600);
+}
+
+.search-sort select {
+  min-width: 180px;
+}
+
+.search-applied {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.search-applied-title {
+  font-size: 0.85rem;
+  color: var(--gray-600);
+  font-weight: 600;
+}
+
+.search-applied-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.search-filter-chip {
+  border: 1px solid var(--gray-200);
+  background: var(--gray-50);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+  color: var(--gray-700);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.search-filter-chip span {
+  color: var(--gray-500);
+}
+
+.search-filter-clear {
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.search-filter-clear:hover {
+  color: var(--primary-dark);
 }
 
 .search-recent-header {
@@ -2167,6 +2240,37 @@ textarea:focus {
   justify-content: flex-end;
 }
 
+.search-filter-modal {
+  width: min(640px, 94vw);
+}
+
+.search-filter-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+  margin-top: 0.75rem;
+}
+
+.search-filter-grid label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
+.search-filter-grid input,
+.search-filter-grid select {
+  width: 100%;
+}
+
+.search-filter-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  justify-content: flex-end;
+}
+
 .profile-search-bar {
   display: grid;
   gap: 0.75rem;
@@ -2214,6 +2318,10 @@ textarea:focus {
   .profile-search-bar {
     grid-template-columns: 1fr 140px;
     align-items: center;
+  }
+
+  .search-filter-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
