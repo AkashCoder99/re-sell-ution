@@ -39,7 +39,11 @@ export const POPULAR_CITIES = [
   'Indianapolis',
   'Seattle',
   'Denver',
-  'Boston'
+  'Boston',
+  'Gainesville',
+  'Miami',
+  'Orlando',
+  'Tampa'
 ] as const
 
 // UI Messages
