@@ -95,6 +95,25 @@ async function mockListingsApi<TResponse>(
     return { categories: mockCategories } as TResponse
   }
 
+  // GET /api/v1/listings/search?q=...&city=...
+  if (path.startsWith('/api/v1/listings/search') && method === 'GET') {
+    const url = new URL(path, 'http://localhost')
+    const q = (url.searchParams.get('q') || '').toLowerCase()
+    const city = (url.searchParams.get('city') || '').toLowerCase()
+    const filtered = mockListings.filter((l) => {
+      if (l.status !== 'active') return false
+      if (city && l.city.toLowerCase() !== city) return false
+      if (!q) return true
+      const haystack = `${l.title} ${l.description}`.toLowerCase()
+      return haystack.includes(q)
+    })
+    const items = filtered.map((l) => ({
+      ...l,
+      images: mockListingImages.filter((img) => img.listing_id === l.id)
+    }))
+    return { listings: items, total: items.length } as TResponse
+  }
+
   // POST /api/v1/listings — create listing
   if (path === '/api/v1/listings' && method === 'POST') {
     const payload = body as CreateListingRequest & { image_urls?: string[] }
@@ -215,6 +234,22 @@ export interface GetCategoriesResponse {
 
 export function getCategories(token: string): Promise<GetCategoriesResponse> {
   return request<GetCategoriesResponse>('/api/v1/categories', { token })
+}
+
+export interface SearchListingsResponse {
+  listings: Listing[]
+  total: number
+}
+
+export function searchListings(
+  token: string,
+  params: { query: string; city?: string }
+): Promise<SearchListingsResponse> {
+  const sp = new URLSearchParams()
+  sp.set('q', params.query)
+  if (params.city) sp.set('city', params.city)
+  const qs = sp.toString()
+  return request<SearchListingsResponse>(`/api/v1/listings/search?${qs}`, { token })
 }
 
 export interface CreateListingResponse {

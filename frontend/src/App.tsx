@@ -10,6 +10,7 @@ import ResetPassword from './components/ResetPassword'
 import { logError, logInfo } from './utils/logger'
 import CreateListing from './components/CreateListing'
 import MyListingsDashboard from './components/MyListingsDashboard'
+import SearchListings from './components/SearchListings'
 import {
   IconEmail,
   IconLocation,
@@ -24,7 +25,8 @@ import {
   IconLock,
   IconEye,
   IconEyeOff,
-  IconUser
+  IconUser,
+  IconSearch
 } from './components/Icons'
 
 const defaultLoginForm: LoginRequest = { email: '', password: '' }
@@ -47,6 +49,7 @@ type ViewMode =
   | 'city-select'
   | 'profile'
   | 'profile-edit'
+  | 'search'
   | 'create-listing'
   | 'my-listings'
 
@@ -66,7 +69,8 @@ export default function App() {
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user])
   const isAuthLandingView = !isAuthenticated && (viewMode === 'login' || viewMode === 'register')
   const isWideView =
-    isAuthenticated && (viewMode === 'create-listing' || viewMode === 'my-listings')
+    isAuthenticated &&
+    (viewMode === 'create-listing' || viewMode === 'my-listings' || viewMode === 'search')
 
   useEffect(() => {
     if (!token) {
@@ -257,7 +261,13 @@ export default function App() {
         {message && <p className="message">{message}</p>}
 
         {/* City Selector - shown after signup/login if no city set */}
-        {isAuthenticated && viewMode === 'create-listing' && user ? (
+        {isAuthenticated && viewMode === 'search' && user ? (
+          <SearchListings
+            token={token}
+            userCity={user.city || ''}
+            onBack={() => setViewMode('profile')}
+          />
+        ) : isAuthenticated && viewMode === 'create-listing' && user ? (
           <CreateListing
             token={token}
             userCity={user.city || ''}
@@ -338,6 +348,14 @@ export default function App() {
               )}
             </div>
             <div className="profile-actions">
+              <button
+                type="button"
+                className="profile-action-btn primary"
+                onClick={() => setViewMode('search')}
+              >
+                <IconSearch className="profile-action-icon" aria-hidden />
+                <span>Search Listings</span>
+              </button>
               <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('create-listing')}>
                 <IconAddListing className="profile-action-icon" aria-hidden />
                 <span>Create Listing</span>
