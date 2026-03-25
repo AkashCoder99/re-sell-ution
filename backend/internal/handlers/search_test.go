@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -64,5 +65,90 @@ func TestParseListingSearchParamsParsesFilters(t *testing.T) {
 	}
 	if *params.RadiusKM != 15 {
 		t.Fatalf("expected radius 15, got %v", *params.RadiusKM)
+	}
+}
+
+func TestSplitSearchTokens(t *testing.T) {
+	got := splitSearchTokens("Bike-Helmet_2024")
+	if len(got) != 3 || got[0] != "Bike" || got[1] != "Helmet" || got[2] != "2024" {
+		t.Fatalf("unexpected tokens: %#v", got)
+	}
+}
+
+func TestParsePositiveIntQuery(t *testing.T) {
+	req := httptest.NewRequest("GET", "/?page=3", nil)
+	n, err := parsePositiveIntQuery(req, "page", 1)
+	if err != nil || n != 3 {
+		t.Fatalf("page: %d %v", n, err)
+	}
+	req2 := httptest.NewRequest("GET", "/?page=0", nil)
+	if _, err := parsePositiveIntQuery(req2, "page", 1); err == nil {
+		t.Fatal("expected error for page=0")
+	}
+	req3 := httptest.NewRequest("GET", "/", nil)
+	n3, err := parsePositiveIntQuery(req3, "page", 7)
+	if err != nil || n3 != 7 {
+		t.Fatalf("fallback: %d %v", n3, err)
+	}
+}
+
+func TestParseOptionalFloatQuery(t *testing.T) {
+	req := httptest.NewRequest("GET", "/?lat=1.5", nil)
+	v, err := parseOptionalFloatQuery(req, "lat")
+	if err != nil || v == nil || *v != 1.5 {
+		t.Fatalf("lat: %v %v", v, err)
+	}
+	empty := httptest.NewRequest("GET", "/", nil)
+	v2, err := parseOptionalFloatQuery(empty, "lat")
+	if err != nil || v2 != nil {
+		t.Fatalf("empty: %v %v", v2, err)
+	}
+	bad := httptest.NewRequest("GET", "/?lat=xx", nil)
+	if _, err := parseOptionalFloatQuery(bad, "lat"); err == nil {
+		t.Fatal("expected parse error")
+	}
+}
+
+func TestBuildSafeTSQueryRequiresQ(t *testing.T) {
+	if _, _, err := buildSafeTSQuery("   "); err == nil {
+		t.Fatal("expected empty q error")
+	}
+}
+
+func TestBuildSafeTSQueryTooLong(t *testing.T) {
+	s := strings.Repeat("a", searchQueryMaxLen+1)
+	if _, _, err := buildSafeTSQuery(s); err == nil {
+		t.Fatal("expected too long")
+	}
+}
+
+func TestParseListingSearchParamsLimitCap(t *testing.T) {
+	req := httptest.NewRequest("GET", "/api/v1/listings/search?q=hello&limit=99", nil)
+	if _, err := parseListingSearchParams(req); err == nil {
+		t.Fatal("expected limit cap error")
+	}
+}
+
+func TestParseListingSearchParamsRadiusWithoutCoords(t *testing.T) {
+	req := httptest.NewRequest("GET", "/api/v1/listings/search?q=hello&radius_km=10", nil)
+	if _, err := parseListingSearchParams(req); err == nil {
+		t.Fatal("expected radius without lat/lng error")
+	}
+}
+
+func TestParseListingSearchParamsInvalidCategoryID(t *testing.T) {
+	req := httptest.NewRequest("GET", "/api/v1/listings/search?q=hello&category_id=bad", nil)
+	if _, err := parseListingSearchParams(req); err == nil {
+		t.Fatal("expected invalid category_id")
+	}
+}
+
+func TestListingHandlerSearchBadParams(t *testing.T) {
+	h := ListingHandler{}
+	req := httptest.NewRequest("GET", "/api/v1/listings/search", nil)
+	rec := httptest.NewRecorder()
+	h.Search(rec, req)
+	if rec.Code != 400 {
+		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 }
