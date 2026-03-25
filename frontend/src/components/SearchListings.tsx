@@ -11,7 +11,9 @@ interface SearchListingsProps {
 }
 
 const RECENT_KEY = 'resellution_recent_searches'
+const PREFILL_KEY = 'resellution_search_prefill'
 const MAX_RECENT = 6
+const PAGE_SIZE = 8
 
 function loadRecent(): string[] {
   try {
@@ -40,9 +42,23 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
   const [error, setError] = useState('')
   const [hasSearched, setHasSearched] = useState(false)
   const [recent, setRecent] = useState<string[]>([])
+  const [page, setPage] = useState(1)
+  const [lastQuery, setLastQuery] = useState('')
+  const [showRecent, setShowRecent] = useState(false)
+  const [selected, setSelected] = useState<Listing | null>(null)
 
   useEffect(() => {
     setRecent(loadRecent())
+    try {
+      const prefill = localStorage.getItem(PREFILL_KEY) || ''
+      if (prefill) {
+        setQuery(prefill)
+        localStorage.removeItem(PREFILL_KEY)
+        void runSearch(prefill)
+      }
+    } catch {
+      // ignore localStorage failures
+    }
   }, [])
 
   const trimmedQuery = useMemo(() => query.trim(), [query])
@@ -58,9 +74,11 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
     setLoading(true)
     setError('')
     setHasSearched(true)
+    setLastQuery(safeQuery)
     try {
       const data = await searchListings(token, { query: safeQuery, city: userCity || undefined })
       setResults(data.listings)
+      setPage(1)
       const updated = [safeQuery, ...recent.filter((q) => q !== safeQuery)].slice(0, MAX_RECENT)
       setRecent(updated)
       saveRecent(updated)
@@ -76,6 +94,9 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
     event.preventDefault()
     void runSearch(query)
   }
+
+  const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE))
+  const pagedResults = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="search-page">
@@ -102,35 +123,80 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
               setQuery(e.target.value)
               if (error) setError('')
             }}
+            onFocus={() => setShowRecent(true)}
+            onBlur={() => {
+              setTimeout(() => setShowRecent(false), 150)
+            }}
           />
+          <button type="submit" className="search-icon-btn" aria-label="Search">
+            <IconSearch className="search-icon-btn-icon" aria-hidden />
+          </button>
         </div>
         <button type="submit" className="profile-edit-btn primary">
           Search
         </button>
       </form>
 
-      {recent.length > 0 && (
+      {showRecent && trimmedQuery.length === 0 && recent.length > 0 && (
         <div className="search-recent">
-          <div className="search-recent-title">Recent searches</div>
+          <div className="search-recent-header">
+            <div className="search-recent-title">Recent searches</div>
+            <button
+              type="button"
+              className="search-recent-clear"
+              onClick={() => {
+                setRecent([])
+                saveRecent([])
+              }}
+            >
+              Clear all
+            </button>
+          </div>
           <div className="search-recent-list">
             {recent.map((item) => (
-              <button
-                key={item}
-                type="button"
-                className="search-chip"
-                onClick={() => {
-                  setQuery(item)
-                  void runSearch(item)
-                }}
-              >
-                {item}
-              </button>
+              <div key={item} className="search-chip">
+                <button
+                  type="button"
+                  className="search-chip-label"
+                  onClick={() => {
+                    setQuery(item)
+                    void runSearch(item)
+                  }}
+                >
+                  {item}
+                </button>
+                <button
+                  type="button"
+                  className="search-chip-remove"
+                  aria-label={`Remove ${item}`}
+                  onClick={() => {
+                    const updated = recent.filter((q) => q !== item)
+                    setRecent(updated)
+                    saveRecent(updated)
+                  }}
+                >
+                  ×
+                </button>
+              </div>
             ))}
           </div>
         </div>
       )}
 
-      {error && <p className="error-message">{error}</p>}
+      {error && (
+        <div className="search-error">
+          <p className="error-message">{error}</p>
+          {lastQuery && (
+            <button
+              type="button"
+              className="profile-edit-btn secondary"
+              onClick={() => void runSearch(lastQuery)}
+            >
+              Retry search
+            </button>
+          )}
+        </div>
+      )}
 
       {loading && (
         <div className="search-state">
@@ -151,8 +217,17 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
         <div className="search-results">
           <div className="search-results-title">Results ({results.length})</div>
           <ul className="search-results-grid">
-            {results.map((listing) => (
-              <li key={listing.id} className="search-card">
+            {pagedResults.map((listing) => (
+              <li
+                key={listing.id}
+                className="search-card"
+                onClick={() => setSelected(listing)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') setSelected(listing)
+                }}
+              >
                 <div className="search-card-image">
                   {listing.images?.[0] ? (
                     <img src={listing.images[0].image_url} alt={listing.title} />
@@ -168,6 +243,50 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
               </li>
             ))}
           </ul>
+          {totalPages > 1 && (
+            <div className="search-pagination">
+              <button
+                type="button"
+                className="search-page-btn"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </button>
+              <span className="search-page-info">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                className="search-page-btn"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {selected && (
+        <div className="search-modal-overlay" role="dialog" aria-modal="true">
+          <div className="search-modal">
+            <div className="search-modal-header">
+              <h3>{selected.title}</h3>
+              <button type="button" className="search-modal-close" onClick={() => setSelected(null)}>
+                ×
+              </button>
+            </div>
+            <p className="search-modal-price">INR {Number(selected.price).toLocaleString()}</p>
+            <p className="search-modal-meta">{selected.city}</p>
+            <p className="search-modal-desc">{selected.description}</p>
+            <div className="search-modal-actions">
+              <button type="button" className="profile-edit-btn secondary" onClick={() => setSelected(null)}>
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

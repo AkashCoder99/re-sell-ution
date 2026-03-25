@@ -66,6 +66,7 @@ export default function App() {
   const [showLoginPassword, setShowLoginPassword] = useState<boolean>(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState<boolean>(false)
   const [listingsRefresh, setListingsRefresh] = useState(0)
+  const [profileSearch, setProfileSearch] = useState('')
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user])
   const isAuthLandingView = !isAuthenticated && (viewMode === 'login' || viewMode === 'register')
   const isWideView =
@@ -347,15 +348,29 @@ export default function App() {
                 </div>
               )}
             </div>
-            <div className="profile-actions">
-              <button
-                type="button"
-                className="profile-action-btn primary"
-                onClick={() => setViewMode('search')}
-              >
-                <IconSearch className="profile-action-icon" aria-hidden />
-                <span>Search Listings</span>
+            <form
+              className="profile-search-bar"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (!profileSearch.trim()) return
+                localStorage.setItem('resellution_search_prefill', profileSearch.trim())
+                setViewMode('search')
+              }}
+            >
+              <div className="profile-search-input">
+                <IconSearch className="profile-search-icon" aria-hidden />
+                <input
+                  type="text"
+                  placeholder={`Search in ${user.city || 'your city'}`}
+                  value={profileSearch}
+                  onChange={(e) => setProfileSearch(e.target.value)}
+                />
+              </div>
+              <button type="submit" className="profile-edit-btn primary">
+                Search
               </button>
+            </form>
+            <div className="profile-actions">
               <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('create-listing')}>
                 <IconAddListing className="profile-action-icon" aria-hidden />
                 <span>Create Listing</span>
