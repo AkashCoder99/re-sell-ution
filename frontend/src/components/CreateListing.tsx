@@ -89,6 +89,34 @@ export default function CreateListing({
     setFieldErrors({})
     if (step === 'basic' && !validateBasic()) return
     if (step === 'details' && !validateDetails()) return
+    // Auto-trigger upload for any pending photos before moving to review
+    if (step === 'photos') {
+      const pendingPhotos = photos.filter((p) => p.status === 'pending' && p.file)
+      if (pendingPhotos.length > 0) {
+        // Mark all pending as uploading, then resolve them
+        setPhotos((prev) =>
+          prev.map((p) =>
+            p.status === 'pending' ? { ...p, status: 'uploading' as const, progress: 50 } : p
+          )
+        )
+        Promise.all(
+          pendingPhotos.map(async (p) => {
+            await new Promise((r) => setTimeout(r, 600))
+            return p.id
+          })
+        ).then((ids) => {
+          setPhotos((prev) =>
+            prev.map((p) =>
+              ids.includes(p.id)
+                ? { ...p, status: 'done' as const, progress: 100, url: p.preview }
+                : p
+            )
+          )
+          setStep('review')
+        })
+        return
+      }
+    }
     const nextIdx = stepIndex + 1
     if (nextIdx < STEPS.length) setStep(STEPS[nextIdx])
   }
@@ -115,8 +143,9 @@ export default function CreateListing({
     setLoading(true)
     setError('')
     try {
+      // Accept any photo that has a preview URL (blob or uploaded), regardless of status
       const image_urls = photos
-        .filter((p) => p.url || (p.preview && p.status === 'done'))
+        .filter((p) => p.url || p.preview)
         .map((p) => p.url || p.preview)
       await createListing(token, {
         title: draft.title.trim(),
@@ -301,11 +330,15 @@ export default function CreateListing({
                 onChange={setPhotos}
                 maxFiles={10}
                 onUpload={async (file) => {
-                  // Mock: use object URL as "uploaded" URL so we can submit with image_urls
-                  return Promise.resolve(URL.createObjectURL(file))
+                  // Simulate upload delay then return object URL as the "hosted" URL
+                  await new Promise((r) => setTimeout(r, 600))
+                  return URL.createObjectURL(file)
                 }}
               />
             </div>
+            <p className="create-listing-photo-skip">
+              No photos? You can skip and add them later.
+            </p>
           </div>
         )}
 
@@ -314,13 +347,33 @@ export default function CreateListing({
             <div className="create-listing-review-block">
               <h3>{draft.title || '-'}</h3>
               <p className="create-listing-review-meta">
-                {draft.city}
-                {draft.state ? `, ${draft.state}` : ''} | {draft.condition} | INR {draft.price}
+                📍 {draft.city}{draft.state ? `, ${draft.state}` : ''}
+                &nbsp;·&nbsp;
+                🏷️ {LISTING_CONDITIONS.find((c) => c.value === draft.condition)?.label ?? draft.condition}
+                &nbsp;·&nbsp;
+                💰 {draft.currency} {Number(draft.price).toLocaleString()}
               </p>
+              {categories.find((c) => c.id === draft.category_id) && (
+                <p className="create-listing-review-category">
+                  📂 {categories.find((c) => c.id === draft.category_id)?.name}
+                </p>
+              )}
               <p className="create-listing-review-desc">{draft.description || '-'}</p>
-              <p className="create-listing-review-photos">
-                {photos.length} photo(s) attached
-              </p>
+              {photos.length > 0 && (
+                <div className="create-listing-review-photos-grid">
+                  {photos.map((p, i) => (
+                    <img
+                      key={p.id}
+                      src={p.url || p.preview}
+                      alt={`Photo ${i + 1}`}
+                      className="create-listing-review-thumb"
+                    />
+                  ))}
+                </div>
+              )}
+              {photos.length === 0 && (
+                <p className="create-listing-review-no-photos">No photos attached</p>
+              )}
             </div>
           </div>
         )}

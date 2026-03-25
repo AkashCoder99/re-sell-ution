@@ -61,8 +61,145 @@ async function request<TResponse>(
 
 // ----- Mock store -----
 
-const mockListings: Listing[] = []
-const mockListingImages: ListingImage[] = []
+const mockListings: Listing[] = [
+  {
+    id: 'listing_001',
+    seller_id: 'mock_user_id',
+    category_id: 'cat_1',
+    title: 'Apple MacBook Pro 14" M2 — Excellent Condition',
+    description: 'Barely used MacBook Pro 14-inch with M2 chip, 16GB RAM, 512GB SSD. Comes with original charger and box. Selling because I upgraded to M3.',
+    condition: 'like_new',
+    price: 1299,
+    currency: 'USD',
+    city: 'Gainesville',
+    state: 'Florida',
+    status: 'active',
+    view_count: 42,
+    created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+    updated_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+    images: [{ id: 'img_001_1', listing_id: 'listing_001', image_url: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&h=300&fit=crop', position: 0 }]
+  },
+  {
+    id: 'listing_002',
+    seller_id: 'mock_user_id',
+    category_id: 'cat_1',
+    title: 'Sony WH-1000XM5 Noise Cancelling Headphones',
+    description: 'Sony WH-1000XM5 wireless headphones in black. Used for 3 months, perfect working condition. Includes carry case and USB-C cable.',
+    condition: 'good',
+    price: 220,
+    currency: 'USD',
+    city: 'Gainesville',
+    state: 'Florida',
+    status: 'active',
+    view_count: 28,
+    created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
+    updated_at: new Date(Date.now() - 5 * 86400000).toISOString(),
+    images: [{ id: 'img_002_1', listing_id: 'listing_002', image_url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop', position: 0 }]
+  },
+  {
+    id: 'listing_003',
+    seller_id: 'mock_user_id',
+    category_id: 'cat_2',
+    title: 'IKEA MALM Queen Bed Frame — White',
+    description: 'IKEA MALM queen bed frame in white. Disassembled and ready for pickup. Minor scuffs on legs but otherwise great condition. No mattress included.',
+    condition: 'good',
+    price: 85,
+    currency: 'USD',
+    city: 'Gainesville',
+    state: 'Florida',
+    status: 'active',
+    view_count: 15,
+    created_at: new Date(Date.now() - 7 * 86400000).toISOString(),
+    updated_at: new Date(Date.now() - 7 * 86400000).toISOString(),
+    images: [{ id: 'img_003_1', listing_id: 'listing_003', image_url: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=300&fit=crop', position: 0 }]
+  },
+  {
+    id: 'listing_004',
+    seller_id: 'mock_user_id',
+    category_id: 'cat_3',
+    title: 'Nike Air Force 1 Low — Size 10 — Brand New',
+    description: 'Brand new Nike Air Force 1 Low in white. Size 10 US. Never worn, still in original box. Got as a gift but wrong size.',
+    condition: 'new',
+    price: 95,
+    currency: 'USD',
+    city: 'Gainesville',
+    state: 'Florida',
+    status: 'active',
+    view_count: 61,
+    created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+    updated_at: new Date(Date.now() - 1 * 86400000).toISOString(),
+    images: [{ id: 'img_004_1', listing_id: 'listing_004', image_url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=300&fit=crop', position: 0 }]
+  },
+  {
+    id: 'listing_005',
+    seller_id: 'mock_user_id',
+    category_id: 'cat_4',
+    title: 'Textbook Bundle — UF Computer Science (COP3502, COP3503)',
+    description: 'Selling my UF CS textbooks: Introduction to Programming with Python (3rd ed) and Data Structures & Algorithms. Both in good condition with some highlighting.',
+    condition: 'good',
+    price: 45,
+    currency: 'USD',
+    city: 'Gainesville',
+    state: 'Florida',
+    status: 'active',
+    view_count: 33,
+    created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+    updated_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+    images: [{ id: 'img_005_1', listing_id: 'listing_005', image_url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&h=300&fit=crop', position: 0 }]
+  },
+  {
+    id: 'listing_006',
+    seller_id: 'mock_user_id',
+    category_id: 'cat_1',
+    title: 'iPad Air 5th Gen 64GB WiFi — Space Gray',
+    description: 'iPad Air 5th generation, 64GB WiFi, Space Gray. Used for one semester. Screen is perfect, no scratches. Comes with Apple Pencil 2nd gen and Smart Folio case.',
+    condition: 'like_new',
+    price: 550,
+    currency: 'USD',
+    city: 'Gainesville',
+    state: 'Florida',
+    status: 'active',
+    view_count: 19,
+    created_at: new Date(Date.now() - 4 * 86400000).toISOString(),
+    updated_at: new Date(Date.now() - 4 * 86400000).toISOString(),
+    images: [{ id: 'img_006_1', listing_id: 'listing_006', image_url: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=400&h=300&fit=crop', position: 0 }]
+  },
+  {
+    id: 'listing_007',
+    seller_id: 'mock_user_id',
+    category_id: 'cat_2',
+    title: 'Standing Desk — Adjustable Height — 55"',
+    description: 'Electric standing desk, 55 inches wide, adjustable height from 28" to 47". Black frame with walnut top. Works perfectly. Moving out of apartment.',
+    condition: 'good',
+    price: 180,
+    currency: 'USD',
+    city: 'Gainesville',
+    state: 'Florida',
+    status: 'active',
+    view_count: 24,
+    created_at: new Date(Date.now() - 6 * 86400000).toISOString(),
+    updated_at: new Date(Date.now() - 6 * 86400000).toISOString(),
+    images: [{ id: 'img_007_1', listing_id: 'listing_007', image_url: 'https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=400&h=300&fit=crop', position: 0 }]
+  },
+  {
+    id: 'listing_008',
+    seller_id: 'mock_user_id',
+    category_id: 'cat_5',
+    title: 'Trek FX3 Hybrid Bike — Medium Frame',
+    description: 'Trek FX3 hybrid bike, medium frame, matte black. Bought last year, ridden about 200 miles. Comes with front/rear lights and lock. Great for campus commuting.',
+    condition: 'like_new',
+    price: 420,
+    currency: 'USD',
+    city: 'Gainesville',
+    state: 'Florida',
+    status: 'active',
+    view_count: 57,
+    created_at: new Date(Date.now() - 8 * 86400000).toISOString(),
+    updated_at: new Date(Date.now() - 8 * 86400000).toISOString(),
+    images: [{ id: 'img_008_1', listing_id: 'listing_008', image_url: 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=400&h=300&fit=crop', position: 0 }]
+  }
+]
+const mockListingImages: ListingImage[] = mockListings.flatMap((l) => l.images ?? [])
 const mockCategories: Category[] = [
   { id: 'cat_1', name: 'Electronics', slug: 'electronics', parent_id: null },
   { id: 'cat_2', name: 'Furniture', slug: 'furniture', parent_id: null },
@@ -88,6 +225,33 @@ async function mockListingsApi<TResponse>(
   const token = authHeader?.replace('Bearer ', '')
   if (!token && path.startsWith('/api/v1/listings')) {
     throw new Error('Unauthorized')
+  }
+
+  // GET /api/v1/listings/browse?city=&category_id=&page=1&limit=12
+  if (path.startsWith('/api/v1/listings/browse') && method === 'GET') {
+    const url = new URL(path, 'http://localhost')
+    const city = url.searchParams.get('city') || ''
+    const category_id = url.searchParams.get('category_id') || ''
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10))
+    const limit = Math.min(20, Math.max(1, parseInt(url.searchParams.get('limit') || '12', 10)))
+
+    let filtered = mockListings.filter((l) => l.status === 'active')
+    if (city) filtered = filtered.filter((l) => l.city.toLowerCase() === city.toLowerCase())
+    if (category_id) filtered = filtered.filter((l) => l.category_id === category_id)
+
+    const total = filtered.length
+    const start = (page - 1) * limit
+    const items = filtered.slice(start, start + limit).map((l) => ({
+      ...l,
+      images: mockListingImages.filter((img) => img.listing_id === l.id)
+    }))
+    return {
+      listings: items,
+      total,
+      page,
+      limit,
+      total_pages: Math.ceil(total / limit) || 1
+    } as TResponse
   }
 
   // GET /api/v1/categories
@@ -234,6 +398,27 @@ export interface GetCategoriesResponse {
 
 export function getCategories(token: string): Promise<GetCategoriesResponse> {
   return request<GetCategoriesResponse>('/api/v1/categories', { token })
+}
+
+export interface PublicListingsResponse {
+  listings: Listing[]
+  total: number
+  page: number
+  limit: number
+  total_pages: number
+}
+
+export function getPublicListings(
+  token: string,
+  params: { city?: string; category_id?: string; page?: number; limit?: number } = {}
+): Promise<PublicListingsResponse> {
+  const sp = new URLSearchParams()
+  if (params.city) sp.set('city', params.city)
+  if (params.category_id) sp.set('category_id', params.category_id)
+  if (params.page) sp.set('page', String(params.page))
+  if (params.limit) sp.set('limit', String(params.limit))
+  const qs = sp.toString()
+  return request<PublicListingsResponse>(`/api/v1/listings/browse${qs ? '?' + qs : ''}`, { token })
 }
 
 export interface SearchListingsResponse {
