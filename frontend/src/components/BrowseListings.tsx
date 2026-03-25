@@ -32,24 +32,34 @@ async function fetchPublicListings(params: {
   if (USE_MOCK) {
     // Return mock data for demo mode
     await new Promise((r) => setTimeout(r, 300))
-    const mockItems: Listing[] = Array.from({ length: 6 }, (_, i) => ({
+    const sampleListings = [
+      { title: 'Apple MacBook Pro 14" M2', price: 1299, city: params.city || 'Gainesville', condition: 'like_new', image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&h=300&fit=crop' },
+      { title: 'Sony WH-1000XM5 Headphones', price: 220, city: params.city || 'Gainesville', condition: 'good', image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop' },
+      { title: 'IKEA MALM Queen Bed Frame', price: 85, city: params.city || 'Gainesville', condition: 'good', image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=300&fit=crop' },
+      { title: 'Nike Air Force 1 Low — Size 10', price: 95, city: params.city || 'Gainesville', condition: 'new', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=300&fit=crop' },
+      { title: 'UF CS Textbook Bundle', price: 45, city: params.city || 'Gainesville', condition: 'good', image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&h=300&fit=crop' },
+      { title: 'iPad Air 5th Gen + Apple Pencil', price: 550, city: params.city || 'Gainesville', condition: 'like_new', image: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=400&h=300&fit=crop' },
+      { title: 'Electric Standing Desk 55"', price: 180, city: params.city || 'Gainesville', condition: 'good', image: 'https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?w=400&h=300&fit=crop' },
+      { title: 'Trek FX3 Hybrid Bike — Medium', price: 420, city: params.city || 'Gainesville', condition: 'like_new', image: 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=400&h=300&fit=crop' },
+    ]
+    const mockItems: Listing[] = sampleListings.map((s, i) => ({
       id: `browse_${i}`,
       seller_id: 'mock_seller',
       category_id: null,
-      title: `Sample Item ${i + 1}`,
-      description: 'A great pre-owned item available locally.',
-      condition: 'good' as const,
-      price: (i + 1) * 25,
+      title: s.title,
+      description: 'Available for pickup in ' + s.city + '. Message for details.',
+      condition: s.condition as Listing['condition'],
+      price: s.price,
       currency: 'USD',
-      city: params.city || 'New York',
-      state: null,
+      city: s.city,
+      state: 'Florida',
       status: 'active' as const,
-      view_count: i * 3,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      images: []
+      view_count: Math.floor(Math.random() * 60) + 5,
+      created_at: new Date(Date.now() - i * 86400000).toISOString(),
+      updated_at: new Date(Date.now() - i * 86400000).toISOString(),
+      images: [{ id: `img_browse_${i}`, listing_id: `browse_${i}`, image_url: s.image, position: 0 }]
     }))
-    return { listings: mockItems, total: 6, page: 1, total_pages: 1 }
+    return { listings: mockItems, total: mockItems.length, page: 1, total_pages: 1 }
   }
 
   const sp = new URLSearchParams()

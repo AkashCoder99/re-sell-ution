@@ -71,23 +71,23 @@ describe('BrowseListings', () => {
   })
 
   it('shows mock listings after loading', async () => {
-    render(<BrowseListings token="mock_token" userCity="New York" onBack={vi.fn()} />)
+    render(<BrowseListings token="mock_token" userCity="Gainesville" onBack={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText('Sample Item 1')).toBeInTheDocument()
+      expect(screen.getByText(/MacBook Pro/i)).toBeInTheDocument()
     })
   })
 
   it('shows multiple listing cards', async () => {
     render(<BrowseListings token="mock_token" onBack={vi.fn()} />)
     await waitFor(() => {
-      const cards = screen.getAllByText(/Sample Item/i)
+      const cards = screen.getAllByText(/USD/i)
       expect(cards.length).toBeGreaterThan(1)
     })
   })
 
   it('pre-selects userCity in the city dropdown', () => {
-    render(<BrowseListings token="mock_token" userCity="Boston" onBack={vi.fn()} />)
-    expect(screen.getByLabelText('Filter by city')).toHaveValue('Boston')
+    render(<BrowseListings token="mock_token" userCity="Gainesville" onBack={vi.fn()} />)
+    expect(screen.getByLabelText('Filter by city')).toHaveValue('Gainesville')
   })
 
   it('changes city filter selection', () => {
