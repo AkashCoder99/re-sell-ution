@@ -61,6 +61,16 @@ cp .env.example .env
 
 Set env vars in `backend/.env` (especially `TOKEN_SECRET`).
 
+SMTP-backed password reset delivery is now configurable through `SMTP_*` env vars in `backend/.env.example`.
+For local-only development you can leave `SMTP_HOST` empty and OTP codes will be written to the backend logs instead.
+For real email delivery set:
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `SMTP_FROM_EMAIL`
+- `SMTP_SECURITY` as `starttls`, `tls`, or `none`
+
 Run migration:
 
 ```bash
@@ -80,6 +90,15 @@ make run
 ```
 
 Backend URL: `http://localhost:8080`
+
+Observability endpoints:
+- JSON metrics: `http://localhost:8080/metrics`
+- Prometheus-friendly metrics: `http://localhost:8080/metrics/prometheus`
+- Baseline dashboard: `http://localhost:8080/metrics/dashboard`
+
+Correlation IDs:
+- Send `X-Correlation-ID` or `X-Request-ID` on incoming requests to reuse an existing trace ID.
+- The backend echoes both headers on the response and includes the same ID in structured logs.
 
 ### 3) Frontend setup
 

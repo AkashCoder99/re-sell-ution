@@ -3,29 +3,33 @@ package config
 import (
 	"bufio"
 	"errors"
+	"fmt"
+	"net/mail"
 	"os"
 	"strconv"
 	"strings"
 )
 
 type Config struct {
-	Port                       string
-	DatabaseURL                string
-	TokenSecret                string
-	TokenExpiryHours           int
-	PasswordResetExpiryMinutes int
-	PasswordResetCooldownMinutes int
-	PasswordResetOTPDigits     int
-	PasswordResetMaxAttempts   int
-	PasswordResetRateLimitPerIP int
+	Port                                string
+	DatabaseURL                         string
+	TokenSecret                         string
+	TokenExpiryHours                    int
+	PasswordResetExpiryMinutes          int
+	PasswordResetCooldownMinutes        int
+	PasswordResetOTPDigits              int
+	PasswordResetMaxAttempts            int
+	PasswordResetRateLimitPerIP         int
 	PasswordResetRateLimitWindowMinutes int
-	SMTPHost                   string
-	SMTPPort                   string
-	SMTPUsername               string
-	SMTPPassword               string
-	SMTPFromEmail              string
-	SMTPFromName               string
-	CorsOrigin                 string
+	SMTPHost                            string
+	SMTPPort                            string
+	SMTPUsername                        string
+	SMTPPassword                        string
+	SMTPFromEmail                       string
+	SMTPFromName                        string
+	SMTPSecurity                        string
+	SMTPTimeoutSeconds                  int
+	CorsOrigin                          string
 }
 
 func Load() (Config, error) {
@@ -87,25 +91,35 @@ func Load() (Config, error) {
 		}
 		passwordResetRateLimitWindowMinutes = parsed
 	}
+	smtpTimeoutSeconds := 10
+	if raw := os.Getenv("SMTP_TIMEOUT_SECONDS"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return Config{}, err
+		}
+		smtpTimeoutSeconds = parsed
+	}
 
 	cfg := Config{
-		Port:                       envOrDefault("PORT", "8080"),
-		DatabaseURL:                os.Getenv("DATABASE_URL"),
-		TokenSecret:                os.Getenv("TOKEN_SECRET"),
-		TokenExpiryHours:           expiryHours,
-		PasswordResetExpiryMinutes: passwordResetExpiryMinutes,
-		PasswordResetCooldownMinutes: passwordResetCooldownMinutes,
-		PasswordResetOTPDigits:     passwordResetOTPDigits,
-		PasswordResetMaxAttempts:   passwordResetMaxAttempts,
-		PasswordResetRateLimitPerIP: passwordResetRateLimitPerIP,
+		Port:                                envOrDefault("PORT", "8080"),
+		DatabaseURL:                         os.Getenv("DATABASE_URL"),
+		TokenSecret:                         os.Getenv("TOKEN_SECRET"),
+		TokenExpiryHours:                    expiryHours,
+		PasswordResetExpiryMinutes:          passwordResetExpiryMinutes,
+		PasswordResetCooldownMinutes:        passwordResetCooldownMinutes,
+		PasswordResetOTPDigits:              passwordResetOTPDigits,
+		PasswordResetMaxAttempts:            passwordResetMaxAttempts,
+		PasswordResetRateLimitPerIP:         passwordResetRateLimitPerIP,
 		PasswordResetRateLimitWindowMinutes: passwordResetRateLimitWindowMinutes,
-		SMTPHost:                   os.Getenv("SMTP_HOST"),
-		SMTPPort:                   envOrDefault("SMTP_PORT", "587"),
-		SMTPUsername:               os.Getenv("SMTP_USERNAME"),
-		SMTPPassword:               os.Getenv("SMTP_PASSWORD"),
-		SMTPFromEmail:              envOrDefault("SMTP_FROM_EMAIL", "no-reply@resellution.local"),
-		SMTPFromName:               envOrDefault("SMTP_FROM_NAME", "ReSellution"),
-		CorsOrigin:                 envOrDefault("CORS_ORIGIN", "http://localhost:5173,http://127.0.0.1:5173"),
+		SMTPHost:                            os.Getenv("SMTP_HOST"),
+		SMTPPort:                            envOrDefault("SMTP_PORT", "587"),
+		SMTPUsername:                        os.Getenv("SMTP_USERNAME"),
+		SMTPPassword:                        os.Getenv("SMTP_PASSWORD"),
+		SMTPFromEmail:                       envOrDefault("SMTP_FROM_EMAIL", "no-reply@resellution.local"),
+		SMTPFromName:                        envOrDefault("SMTP_FROM_NAME", "ReSellution"),
+		SMTPSecurity:                        strings.ToLower(envOrDefault("SMTP_SECURITY", "starttls")),
+		SMTPTimeoutSeconds:                  smtpTimeoutSeconds,
+		CorsOrigin:                          envOrDefault("CORS_ORIGIN", "http://localhost:5173,http://127.0.0.1:5173"),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -113,6 +127,9 @@ func Load() (Config, error) {
 	}
 	if cfg.TokenSecret == "" {
 		return Config{}, errors.New("TOKEN_SECRET is required")
+	}
+	if err := validateSMTPConfig(cfg); err != nil {
+		return Config{}, err
 	}
 
 	return cfg, nil
@@ -153,5 +170,32 @@ func loadDotEnv(path string) {
 		if _, exists := os.LookupEnv(key); !exists {
 			_ = os.Setenv(key, value)
 		}
+	}
+}
+
+func validateSMTPConfig(cfg Config) error {
+	if cfg.SMTPTimeoutSeconds <= 0 {
+		return errors.New("SMTP_TIMEOUT_SECONDS must be greater than 0")
+	}
+
+	if cfg.SMTPHost == "" {
+		if cfg.SMTPUsername != "" || cfg.SMTPPassword != "" {
+			return errors.New("SMTP_HOST is required when SMTP_USERNAME or SMTP_PASSWORD is set")
+		}
+		return nil
+	}
+
+	if _, err := mail.ParseAddress(cfg.SMTPFromEmail); err != nil {
+		return fmt.Errorf("SMTP_FROM_EMAIL must be a valid email address: %w", err)
+	}
+	if (cfg.SMTPUsername == "") != (cfg.SMTPPassword == "") {
+		return errors.New("SMTP_USERNAME and SMTP_PASSWORD must either both be set or both be empty")
+	}
+
+	switch cfg.SMTPSecurity {
+	case "starttls", "tls", "none":
+		return nil
+	default:
+		return fmt.Errorf("SMTP_SECURITY must be one of starttls, tls, or none")
 	}
 }

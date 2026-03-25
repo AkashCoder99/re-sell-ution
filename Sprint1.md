@@ -68,11 +68,11 @@ Status: Completed ✅
 - Logout endpoint implemented.
 
 ### B2 (P0) - Account recovery (reset/OTP)
-Status: Partial
+Status: Completed ✅
 - Reset request endpoint implemented.
 - Reset confirm endpoint implemented.
 - Cooldown, max attempts, and expiry enforcement implemented.
-- SMTP config not completed yet; endpoint flow works, but production email delivery depends on SMTP setup.
+- SMTP delivery configuration implemented with documented `SMTP_*` environment variables and transport security options.
 
 ### B4 (P0) - User profile APIs
 Status: Completed ✅
@@ -81,11 +81,11 @@ Status: Completed ✅
 - Input validation implemented (including city/profile field validation).
 
 ### B6 (P1) - Observability (logs + basic metrics)
-Status: Partial
+Status: Completed ✅
 - Structured logging implemented.
 - Basic request metrics implemented (`/metrics`).
-- Correlation IDs not implemented.
-- Dashboard baseline not implemented.
+- Correlation IDs implemented via `X-Correlation-ID` / `X-Request-ID`.
+- Dashboard baseline implemented at `/metrics/dashboard` with Prometheus-friendly export at `/metrics/prometheus`.
 
 ## PART-02 - Database Architecture & Standards
 
@@ -136,11 +136,10 @@ Status: Partial
 - Full backend flow for sold-state synchronization is not complete in Sprint 1.
 
 ## Sprint 1 Summary
-- Completed stories: F1, F2, F3, F4, F6, B1, B3, B4, B5, B14, F12, F13, F14
-- Partial stories: F5, B2, B6, F20
+- Completed stories: F1, F2, F3, F4, F6, B1, B2, B3, B4, B5, B6, B14, F12, F13, F14
+- Partial stories: F5, F20
 - Not Completed stories: None from the listed set were fully skipped, but few are partial due to integration and infrastructure gaps.
 
 ## Why Some Stories Are Partial
 - Sprint 1 prioritized authentication and database foundation first.
-- SMTP configuration is pending, so password reset email delivery is environment-dependent.
-- Observability was delivered at basic level without dashboard layer.
+- Marketplace conversation/chat and notification integration remain partially scoped for a later pass.

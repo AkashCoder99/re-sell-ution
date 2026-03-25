@@ -40,6 +40,8 @@ func main() {
 			Password:  cfg.SMTPPassword,
 			FromEmail: cfg.SMTPFromEmail,
 			FromName:  cfg.SMTPFromName,
+			Security:  cfg.SMTPSecurity,
+			Timeout:   time.Duration(cfg.SMTPTimeoutSeconds) * time.Second,
 		}
 	}
 
@@ -59,7 +61,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	metrics := observability.NewMetrics()
-	logger := observability.NewLogger()
+	logger := observability.DefaultLogger()
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -67,6 +69,8 @@ func main() {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 	mux.HandleFunc("GET /metrics", observability.MetricsHandler(metrics))
+	mux.HandleFunc("GET /metrics/prometheus", observability.PrometheusMetricsHandler(metrics))
+	mux.HandleFunc("GET /metrics/dashboard", observability.DashboardHandler())
 	mux.HandleFunc("POST /api/v1/auth/register", authHandler.Register)
 	mux.HandleFunc("POST /api/v1/auth/login", authHandler.Login)
 	passwordResetRateLimiter := ratelimit.NewIPRateLimiter(cfg.PasswordResetRateLimitPerIP, cfg.PasswordResetRateLimitWindowMinutes)
@@ -95,6 +99,20 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	if emailSender == nil {
+		logger.Warn("smtp delivery disabled", map[string]any{
+			"password_reset_delivery": "application_log",
+			"note":                    "set SMTP_HOST and related SMTP_* env vars for email delivery",
+		})
+	} else {
+		logger.Info("smtp delivery enabled", map[string]any{
+			"host":     cfg.SMTPHost,
+			"port":     cfg.SMTPPort,
+			"security": cfg.SMTPSecurity,
+			"from":     cfg.SMTPFromEmail,
+		})
+	}
+
 	logger.Info("backend started", map[string]any{"port": cfg.Port, "url": "http://localhost:" + cfg.Port})
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server error: %v", err)
@@ -109,8 +127,9 @@ func withCORS(allowedOriginsCSV string, next http.Handler) http.Handler {
 		if origin != "" && isOriginAllowed(origin, allowedOrigins) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Correlation-ID, X-Request-ID")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Expose-Headers", "X-Correlation-ID, X-Request-ID")
 		}
 
 		if r.Method == http.MethodOptions {

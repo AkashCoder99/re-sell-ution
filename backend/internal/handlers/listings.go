@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 
 	"resellution/backend/internal/middleware"
 	"resellution/backend/internal/models"
+	"resellution/backend/internal/observability"
 )
 
 type ListingHandler struct {
@@ -47,7 +47,7 @@ func (h ListingHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
 
 	cats, err := h.Listings.ListCategories(r.Context())
 	if err != nil {
-		log.Printf("listings.categories failed err=%v", err)
+		observability.Error(r.Context(), "listings.categories.failed", map[string]any{"error": err.Error()})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load categories"})
 		return
 	}
@@ -120,7 +120,10 @@ func (h ListingHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	listing, err := h.Listings.Create(r.Context(), userID, userID, in)
 	if err != nil {
-		log.Printf("listings.create failed user_id=%s err=%v", userID, err)
+		observability.Error(r.Context(), "listings.create.failed", map[string]any{
+			"user_id": userID,
+			"error":   err.Error(),
+		})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create listing"})
 		return
 	}
@@ -151,7 +154,10 @@ func (h ListingHandler) ListMine(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.Listings.ListBySeller(r.Context(), userID, status, page, limit)
 	if err != nil {
-		log.Printf("listings.list_mine failed user_id=%s err=%v", userID, err)
+		observability.Error(r.Context(), "listings.list_mine.failed", map[string]any{
+			"user_id": userID,
+			"error":   err.Error(),
+		})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load listings"})
 		return
 	}
@@ -166,14 +172,14 @@ func (h ListingHandler) ListMine(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateListingRequest struct {
-	Title        *string          `json:"title"`
-	Description  *string          `json:"description"`
-	Condition    *string          `json:"condition"`
-	Price        *float64         `json:"price"`
-	Currency     *string          `json:"currency"`
-	City         *string          `json:"city"`
-	State        *string          `json:"state"`
-	CategoryJSON json.RawMessage  `json:"category_id"`
+	Title        *string         `json:"title"`
+	Description  *string         `json:"description"`
+	Condition    *string         `json:"condition"`
+	Price        *float64        `json:"price"`
+	Currency     *string         `json:"currency"`
+	City         *string         `json:"city"`
+	State        *string         `json:"state"`
+	CategoryJSON json.RawMessage `json:"category_id"`
 }
 
 func (h ListingHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -257,7 +263,11 @@ func (h ListingHandler) Update(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "listing not found"})
 			return
 		}
-		log.Printf("listings.update failed user_id=%s id=%s err=%v", userID, id, err)
+		observability.Error(r.Context(), "listings.update.failed", map[string]any{
+			"user_id":    userID,
+			"listing_id": id,
+			"error":      err.Error(),
+		})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update listing"})
 		return
 	}
@@ -266,8 +276,8 @@ func (h ListingHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 type patchStatusRequest struct {
-	Status         string  `json:"status"`
-	SoldToUserID   *string `json:"sold_to_user_id"`
+	Status       string  `json:"status"`
+	SoldToUserID *string `json:"sold_to_user_id"`
 }
 
 func (h ListingHandler) PatchStatus(w http.ResponseWriter, r *http.Request) {
@@ -312,7 +322,11 @@ func (h ListingHandler) PatchStatus(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "listing not found"})
 			return
 		}
-		log.Printf("listings.patch_status failed user_id=%s id=%s err=%v", userID, id, err)
+		observability.Error(r.Context(), "listings.patch_status.failed", map[string]any{
+			"user_id":    userID,
+			"listing_id": id,
+			"error":      err.Error(),
+		})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update status"})
 		return
 	}
@@ -337,7 +351,11 @@ func (h ListingHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "listing not found"})
 			return
 		}
-		log.Printf("listings.delete failed user_id=%s id=%s err=%v", userID, id, err)
+		observability.Error(r.Context(), "listings.delete.failed", map[string]any{
+			"user_id":    userID,
+			"listing_id": id,
+			"error":      err.Error(),
+		})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to delete listing"})
 		return
 	}

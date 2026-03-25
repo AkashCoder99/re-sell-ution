@@ -7,10 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
-	"net/mail"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"strings"
 	"time"
@@ -21,13 +20,14 @@ import (
 
 	"resellution/backend/internal/middleware"
 	"resellution/backend/internal/models"
+	"resellution/backend/internal/observability"
 	"resellution/backend/internal/utils"
 )
 
 type AuthHandler struct {
-	Users                      models.UserStore
-	TokenManager               utils.TokenManager
-	EmailSender                utils.EmailSender
+	Users                        models.UserStore
+	TokenManager                 utils.TokenManager
+	EmailSender                  utils.EmailSender
 	TokenExpiryHours             int
 	PasswordResetExpiryMinutes   int
 	PasswordResetCooldownMinutes int
@@ -131,7 +131,7 @@ func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	createdUser, err := h.Users.Create(r.Context(), user)
 	if err != nil {
-		log.Printf("register create user failed: %v", err)
+		observability.Error(r.Context(), "auth.register.create_user_failed", map[string]any{"error": err.Error()})
 		lowerErr := strings.ToLower(err.Error())
 		if strings.Contains(lowerErr, "duplicate") || strings.Contains(lowerErr, "unique") {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "email already registered"})
@@ -144,7 +144,10 @@ func (h AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to create user"})
 		return
 	}
-	log.Printf("auth.register.success email=%s user_id=%s", createdUser.Email, createdUser.ID)
+	observability.Info(r.Context(), "auth.register.success", map[string]any{
+		"email":   createdUser.Email,
+		"user_id": createdUser.ID,
+	})
 
 	token, err := h.createToken(createdUser.ID)
 	if err != nil {
@@ -184,17 +187,27 @@ func (h AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := h.Users.FindByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, models.ErrUserNotFound) {
-			log.Printf("auth.login.failed email=%s reason=user_not_found", req.Email)
+			observability.Warn(r.Context(), "auth.login.failed", map[string]any{
+				"email":  req.Email,
+				"reason": "user_not_found",
+			})
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid email or password"})
 			return
 		}
-		log.Printf("auth.login.failed email=%s reason=fetch_error err=%v", req.Email, err)
+		observability.Error(r.Context(), "auth.login.fetch_user_failed", map[string]any{
+			"email":  req.Email,
+			"reason": "fetch_error",
+			"error":  err.Error(),
+		})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to fetch user"})
 		return
 	}
 
 	if !utils.VerifyPassword(req.Password, user.PasswordHash) {
-		log.Printf("auth.login.failed email=%s reason=invalid_password", req.Email)
+		observability.Warn(r.Context(), "auth.login.failed", map[string]any{
+			"email":  req.Email,
+			"reason": "invalid_password",
+		})
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid email or password"})
 		return
 	}
@@ -206,7 +219,10 @@ func (h AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, authResponse{Token: token, User: toPublicUser(user)})
-	log.Printf("auth.login.success email=%s user_id=%s", user.Email, user.ID)
+	observability.Info(r.Context(), "auth.login.success", map[string]any{
+		"email":   user.Email,
+		"user_id": user.ID,
+	})
 }
 
 func (h AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
@@ -279,7 +295,7 @@ func (h AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	// Current auth is stateless JWT, so logout is client token disposal.
 	// Keeping this endpoint enables forward compatibility with token revocation.
 	writeJSON(w, http.StatusOK, map[string]string{"message": "logged out"})
-	log.Printf("auth.logout.success user_id=%s", userID)
+	observability.Info(r.Context(), "auth.logout.success", map[string]any{"user_id": userID})
 }
 
 func (h AuthHandler) DeactivateAccount(w http.ResponseWriter, r *http.Request) {
@@ -294,13 +310,16 @@ func (h AuthHandler) DeactivateAccount(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "account not found"})
 			return
 		}
-		log.Printf("auth.deactivate failed user_id=%s err=%v", userID, err)
+		observability.Error(r.Context(), "auth.deactivate.failed", map[string]any{
+			"user_id": userID,
+			"error":   err.Error(),
+		})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to deactivate account"})
 		return
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "account deactivated successfully"})
-	log.Printf("auth.deactivate.success user_id=%s", userID)
+	observability.Info(r.Context(), "auth.deactivate.success", map[string]any{"user_id": userID})
 }
 
 func (h AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
@@ -319,11 +338,17 @@ func (h AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request
 	user, err := h.Users.FindByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, models.ErrUserNotFound) {
-			log.Printf("auth.password_reset.request ignored email=%s reason=user_not_found", req.Email)
+			observability.Info(r.Context(), "auth.password_reset.request.ignored", map[string]any{
+				"email":  req.Email,
+				"reason": "user_not_found",
+			})
 			writeJSON(w, http.StatusOK, map[string]string{"message": "If an account exists, an OTP has been sent to the registered email"})
 			return
 		}
-		log.Printf("auth.password_reset.request failed email=%s err=%v", req.Email, err)
+		observability.Error(r.Context(), "auth.password_reset.request.lookup_failed", map[string]any{
+			"email": req.Email,
+			"error": err.Error(),
+		})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
 		return
 	}
@@ -342,7 +367,7 @@ func (h AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request
 				minutesLeft = 1
 			}
 			writeJSON(w, http.StatusTooManyRequests, map[string]any{
-				"error":                fmt.Sprintf("Please wait %d more minute(s) before requesting another reset code", minutesLeft),
+				"error":               fmt.Sprintf("Please wait %d more minute(s) before requesting another reset code", minutesLeft),
 				"retry_after_minutes": minutesLeft,
 			})
 			return
@@ -382,16 +407,31 @@ func (h AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request
 
 	if h.EmailSender != nil {
 		if err := h.EmailSender.Send(req.Email, subject, body); err != nil {
-			log.Printf("failed to send password reset OTP email to %s: %v", req.Email, err)
+			observability.Error(r.Context(), "auth.password_reset.request.email_send_failed", map[string]any{
+				"email": req.Email,
+				"error": err.Error(),
+			})
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to process reset request"})
 			return
 		}
 	} else {
-		log.Printf("SMTP not configured. OTP for %s (expires %s): %s", req.Email, expiresAt.Format(time.RFC3339), otp)
+		observability.Warn(r.Context(), "auth.password_reset.request.smtp_not_configured", map[string]any{
+			"email":      req.Email,
+			"otp":        otp,
+			"expires_at": expiresAt.Format(time.RFC3339),
+			"delivery":   "application_log",
+		})
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "If an account exists, an OTP has been sent to the registered email"})
-	log.Printf("auth.password_reset.request success email=%s user_id=%s", req.Email, user.ID)
+	observability.Info(r.Context(), "auth.password_reset.request.success", map[string]any{
+		"email":   req.Email,
+		"user_id": user.ID,
+		"delivery": map[bool]string{
+			true:  "smtp",
+			false: "application_log",
+		}[h.EmailSender != nil],
+	})
 }
 
 func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
@@ -421,22 +461,38 @@ func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request
 	user, err := h.Users.FindByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, models.ErrUserNotFound) {
-			log.Printf("auth.password_reset.confirm failed email=%s reason=user_not_found", req.Email)
+			observability.Warn(r.Context(), "auth.password_reset.confirm.failed", map[string]any{
+				"email":  req.Email,
+				"reason": "user_not_found",
+			})
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired otp"})
 			return
 		}
-		log.Printf("auth.password_reset.confirm failed email=%s reason=fetch_error err=%v", req.Email, err)
+		observability.Error(r.Context(), "auth.password_reset.confirm.lookup_failed", map[string]any{
+			"email":  req.Email,
+			"reason": "fetch_error",
+			"error":  err.Error(),
+		})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
 		return
 	}
 
 	if err := h.Users.ConsumePasswordResetOTP(r.Context(), user.ID, passwordResetOTPHash(req.OTP)); err != nil {
 		if errors.Is(err, models.ErrPasswordResetOTPInvalid) {
-			log.Printf("auth.password_reset.confirm failed email=%s user_id=%s reason=invalid_otp", req.Email, user.ID)
+			observability.Warn(r.Context(), "auth.password_reset.confirm.failed", map[string]any{
+				"email":   req.Email,
+				"user_id": user.ID,
+				"reason":  "invalid_otp",
+			})
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired otp"})
 			return
 		}
-		log.Printf("auth.password_reset.confirm failed email=%s user_id=%s reason=consume_error err=%v", req.Email, user.ID, err)
+		observability.Error(r.Context(), "auth.password_reset.confirm.consume_failed", map[string]any{
+			"email":   req.Email,
+			"user_id": user.ID,
+			"reason":  "consume_error",
+			"error":   err.Error(),
+		})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
 		return
 	}
@@ -452,7 +508,12 @@ func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid or expired otp"})
 			return
 		}
-		log.Printf("auth.password_reset.confirm failed email=%s user_id=%s reason=update_error err=%v", req.Email, user.ID, err)
+		observability.Error(r.Context(), "auth.password_reset.confirm.password_update_failed", map[string]any{
+			"email":   req.Email,
+			"user_id": user.ID,
+			"reason":  "update_error",
+			"error":   err.Error(),
+		})
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to reset password"})
 		return
 	}
@@ -463,7 +524,10 @@ func (h AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "password reset successful"})
-	log.Printf("auth.password_reset.confirm success email=%s user_id=%s", req.Email, user.ID)
+	observability.Info(r.Context(), "auth.password_reset.confirm.success", map[string]any{
+		"email":   req.Email,
+		"user_id": user.ID,
+	})
 }
 
 func (h AuthHandler) createToken(userID string) (string, error) {
