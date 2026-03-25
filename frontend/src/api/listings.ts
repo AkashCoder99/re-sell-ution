@@ -227,6 +227,33 @@ async function mockListingsApi<TResponse>(
     throw new Error('Unauthorized')
   }
 
+  // GET /api/v1/listings/browse?city=&category_id=&page=1&limit=12
+  if (path.startsWith('/api/v1/listings/browse') && method === 'GET') {
+    const url = new URL(path, 'http://localhost')
+    const city = url.searchParams.get('city') || ''
+    const category_id = url.searchParams.get('category_id') || ''
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10))
+    const limit = Math.min(20, Math.max(1, parseInt(url.searchParams.get('limit') || '12', 10)))
+
+    let filtered = mockListings.filter((l) => l.status === 'active')
+    if (city) filtered = filtered.filter((l) => l.city.toLowerCase() === city.toLowerCase())
+    if (category_id) filtered = filtered.filter((l) => l.category_id === category_id)
+
+    const total = filtered.length
+    const start = (page - 1) * limit
+    const items = filtered.slice(start, start + limit).map((l) => ({
+      ...l,
+      images: mockListingImages.filter((img) => img.listing_id === l.id)
+    }))
+    return {
+      listings: items,
+      total,
+      page,
+      limit,
+      total_pages: Math.ceil(total / limit) || 1
+    } as TResponse
+  }
+
   // GET /api/v1/categories
   if (path === '/api/v1/categories' && method === 'GET') {
     return { categories: mockCategories } as TResponse
@@ -352,6 +379,27 @@ export interface GetCategoriesResponse {
 
 export function getCategories(token: string): Promise<GetCategoriesResponse> {
   return request<GetCategoriesResponse>('/api/v1/categories', { token })
+}
+
+export interface PublicListingsResponse {
+  listings: Listing[]
+  total: number
+  page: number
+  limit: number
+  total_pages: number
+}
+
+export function getPublicListings(
+  token: string,
+  params: { city?: string; category_id?: string; page?: number; limit?: number } = {}
+): Promise<PublicListingsResponse> {
+  const sp = new URLSearchParams()
+  if (params.city) sp.set('city', params.city)
+  if (params.category_id) sp.set('category_id', params.category_id)
+  if (params.page) sp.set('page', String(params.page))
+  if (params.limit) sp.set('limit', String(params.limit))
+  const qs = sp.toString()
+  return request<PublicListingsResponse>(`/api/v1/listings/browse${qs ? '?' + qs : ''}`, { token })
 }
 
 export interface CreateListingResponse {

@@ -3,7 +3,17 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 // Mock the listings API module so getCategories doesn't call real fetch
 vi.mock('../api/listings', () => ({
-  getCategories: vi.fn().mockResolvedValue({ categories: [] }),
+  getCategories: vi.fn().mockResolvedValue({ categories: [
+    { id: 'cat_1', name: 'Electronics', slug: 'electronics', parent_id: null },
+    { id: 'cat_2', name: 'Furniture', slug: 'furniture', parent_id: null },
+  ] }),
+  getPublicListings: vi.fn().mockResolvedValue({
+    listings: [
+      { id: 'l1', seller_id: 's1', category_id: 'cat_1', title: 'MacBook Pro M2', description: 'Great laptop', condition: 'like_new', price: 1299, currency: 'USD', city: 'Gainesville', state: 'Florida', status: 'active', view_count: 10, created_at: '', updated_at: '', images: [{ id: 'i1', listing_id: 'l1', image_url: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400', position: 0 }] },
+      { id: 'l2', seller_id: 's1', category_id: 'cat_2', title: 'IKEA Bed Frame', description: 'Solid bed', condition: 'good', price: 85, currency: 'USD', city: 'Gainesville', state: 'Florida', status: 'active', view_count: 5, created_at: '', updated_at: '', images: [] },
+    ],
+    total: 2, page: 1, limit: 12, total_pages: 1
+  }),
   getMyListings: vi.fn().mockResolvedValue({ listings: [], total: 0, page: 1, total_pages: 1 }),
   createListing: vi.fn(),
   updateListingStatus: vi.fn(),
@@ -73,15 +83,15 @@ describe('BrowseListings', () => {
   it('shows mock listings after loading', async () => {
     render(<BrowseListings token="mock_token" userCity="Gainesville" onBack={vi.fn()} />)
     await waitFor(() => {
-      expect(screen.getByText(/MacBook Pro/i)).toBeInTheDocument()
+      expect(screen.getByText('MacBook Pro M2')).toBeInTheDocument()
     })
   })
 
   it('shows multiple listing cards', async () => {
     render(<BrowseListings token="mock_token" onBack={vi.fn()} />)
     await waitFor(() => {
-      const cards = screen.getAllByText(/USD/i)
-      expect(cards.length).toBeGreaterThan(1)
+      expect(screen.getByText('MacBook Pro M2')).toBeInTheDocument()
+      expect(screen.getByText('IKEA Bed Frame')).toBeInTheDocument()
     })
   })
 
