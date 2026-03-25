@@ -400,6 +400,27 @@ export function getCategories(token: string): Promise<GetCategoriesResponse> {
   return request<GetCategoriesResponse>('/api/v1/categories', { token })
 }
 
+export interface PublicListingsResponse {
+  listings: Listing[]
+  total: number
+  page: number
+  limit: number
+  total_pages: number
+}
+
+export function getPublicListings(
+  token: string,
+  params: { city?: string; category_id?: string; page?: number; limit?: number } = {}
+): Promise<PublicListingsResponse> {
+  const sp = new URLSearchParams()
+  if (params.city) sp.set('city', params.city)
+  if (params.category_id) sp.set('category_id', params.category_id)
+  if (params.page) sp.set('page', String(params.page))
+  if (params.limit) sp.set('limit', String(params.limit))
+  const qs = sp.toString()
+  return request<PublicListingsResponse>(`/api/v1/listings/browse${qs ? '?' + qs : ''}`, { token })
+}
+
 export interface SearchListingsResponse {
   listings: Listing[]
   total: number

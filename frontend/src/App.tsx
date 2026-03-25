@@ -11,6 +11,7 @@ import { logError, logInfo } from './utils/logger'
 import CreateListing from './components/CreateListing'
 import MyListingsDashboard from './components/MyListingsDashboard'
 import SearchListings from './components/SearchListings'
+import BrowseListings from './components/BrowseListings'
 import {
   IconEmail,
   IconLocation,
@@ -72,7 +73,7 @@ export default function App() {
   const isAuthLandingView = !isAuthenticated && (viewMode === 'login' || viewMode === 'register')
   const isWideView =
     isAuthenticated &&
-    (viewMode === 'create-listing' || viewMode === 'my-listings' || viewMode === 'search')
+    (viewMode === 'create-listing' || viewMode === 'my-listings' || viewMode === 'search' || viewMode === 'browse')
 
   useEffect(() => {
     if (!token) {
@@ -263,7 +264,13 @@ export default function App() {
         {message && <p className="message">{message}</p>}
 
         {/* City Selector - shown after signup/login if no city set */}
-        {isAuthenticated && viewMode === 'search' && user ? (
+        {isAuthenticated && viewMode === 'browse' && user ? (
+          <BrowseListings
+            token={token}
+            userCity={user.city || ''}
+            onBack={() => setViewMode('profile')}
+          />
+        ) : isAuthenticated && viewMode === 'search' && user ? (
           <SearchListings
             token={token}
             userCity={user.city || ''}
