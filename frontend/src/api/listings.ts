@@ -218,9 +218,16 @@ async function mockListingsApi<TResponse>(
 ): Promise<TResponse> {
   await mockDelay()
   const method = options.method || 'GET'
-  const body = options.body
-    ? JSON.parse(options.body as string)
-    : null
+  let body: unknown = null
+  if (options.body instanceof FormData) {
+    body = options.body
+  } else if (typeof options.body === 'string') {
+    try {
+      body = JSON.parse(options.body)
+    } catch {
+      body = null
+    }
+  }
   const authHeader = (options.headers as Record<string, string>)?.Authorization
   const token = authHeader?.replace('Bearer ', '')
   if (!token && path.startsWith('/api/v1/listings')) {
@@ -372,11 +379,29 @@ async function mockListingsApi<TResponse>(
     const id = path.split('/')[4]
     const listing = mockListings.find((l) => l.id === id)
     if (!listing) throw new Error('Listing not found')
-    const payload = body as { image_url?: string; position?: number }
-    const imageUrl = payload?.image_url || 'https://placehold.co/400x300?text=Photo'
-    const pos =
-      payload?.position ??
-      mockListingImages.filter((img) => img.listing_id === id).length
+    const defaultPosition = mockListingImages.filter((img) => img.listing_id === id).length
+
+    let imageUrl = 'https://placehold.co/400x300?text=Photo'
+    let pos = defaultPosition
+
+    if (body instanceof FormData) {
+      const file = body.get('file')
+      const position = body.get('position')
+      if (typeof position === 'string') {
+        const parsed = Number.parseInt(position, 10)
+        if (!Number.isNaN(parsed)) {
+          pos = parsed
+        }
+      }
+      if (file && typeof file === 'object' && 'name' in file && typeof file.name === 'string') {
+        imageUrl = `https://placehold.co/400x300?text=${encodeURIComponent(file.name)}`
+      }
+    } else {
+      const payload = body as { image_url?: string; position?: number } | null
+      imageUrl = payload?.image_url || imageUrl
+      pos = payload?.position ?? pos
+    }
+
     const img: ListingImage = {
       id: `img_${id}_${Date.now()}`,
       listing_id: id,
@@ -396,8 +421,11 @@ export interface GetCategoriesResponse {
   categories: Category[]
 }
 
-export function getCategories(token: string): Promise<GetCategoriesResponse> {
-  return request<GetCategoriesResponse>('/api/v1/categories', { token })
+export async function getCategories(token: string): Promise<GetCategoriesResponse> {
+  const res = await request<Partial<GetCategoriesResponse>>('/api/v1/categories', { token })
+  return {
+    categories: Array.isArray(res?.categories) ? res.categories : []
+  }
 }
 
 export interface PublicListingsResponse {
@@ -408,7 +436,7 @@ export interface PublicListingsResponse {
   total_pages: number
 }
 
-export function getPublicListings(
+export async function getPublicListings(
   token: string,
   params: { city?: string; category_id?: string; page?: number; limit?: number } = {}
 ): Promise<PublicListingsResponse> {
@@ -418,7 +446,23 @@ export function getPublicListings(
   if (params.page) sp.set('page', String(params.page))
   if (params.limit) sp.set('limit', String(params.limit))
   const qs = sp.toString()
-  return request<PublicListingsResponse>(`/api/v1/listings/browse${qs ? '?' + qs : ''}`, { token })
+  const res = await request<Partial<PublicListingsResponse>>(`/api/v1/listings/browse${qs ? '?' + qs : ''}`, { token })
+  const listings = Array.isArray(res?.listings) ? res.listings : []
+  const limit = typeof res?.limit === 'number' && res.limit > 0 ? res.limit : (params.limit ?? 12)
+  const page = typeof res?.page === 'number' && res.page > 0 ? res.page : (params.page ?? 1)
+  const total = typeof res?.total === 'number' && res.total >= 0 ? res.total : listings.length
+  const totalPages =
+    typeof res?.total_pages === 'number' && res.total_pages > 0
+      ? res.total_pages
+      : Math.max(1, Math.ceil(total / limit))
+
+  return {
+    listings,
+    total,
+    page,
+    limit,
+    total_pages: totalPages
+  }
 }
 
 export interface SearchListingsResponse {
@@ -426,7 +470,7 @@ export interface SearchListingsResponse {
   total: number
 }
 
-export function searchListings(
+export async function searchListings(
   token: string,
   params: { query: string; city?: string }
 ): Promise<SearchListingsResponse> {
@@ -434,7 +478,12 @@ export function searchListings(
   sp.set('q', params.query)
   if (params.city) sp.set('city', params.city)
   const qs = sp.toString()
-  return request<SearchListingsResponse>(`/api/v1/listings/search?${qs}`, { token })
+  const res = await request<Partial<SearchListingsResponse>>(`/api/v1/listings/search?${qs}`, { token })
+  const listings = Array.isArray(res?.listings) ? res.listings : []
+  return {
+    listings,
+    total: typeof res?.total === 'number' && res.total >= 0 ? res.total : listings.length
+  }
 }
 
 export interface CreateListingResponse {
@@ -464,7 +513,7 @@ export interface MyListingsResponse {
   total_pages: number
 }
 
-export function getMyListings(
+export async function getMyListings(
   token: string,
   params: { status?: 'active' | 'sold' | 'draft'; page?: number; limit?: number } = {}
 ): Promise<MyListingsResponse> {
@@ -473,9 +522,25 @@ export function getMyListings(
   if (params.page) sp.set('page', String(params.page))
   if (params.limit) sp.set('limit', String(params.limit))
   const qs = sp.toString()
-  return request<MyListingsResponse>(`/api/v1/listings/me${qs ? '?' + qs : ''}`, {
+  const res = await request<Partial<MyListingsResponse>>(`/api/v1/listings/me${qs ? '?' + qs : ''}`, {
     token
   })
+  const listings = Array.isArray(res?.listings) ? res.listings : []
+  const limit = typeof res?.limit === 'number' && res.limit > 0 ? res.limit : (params.limit ?? 10)
+  const page = typeof res?.page === 'number' && res.page > 0 ? res.page : (params.page ?? 1)
+  const total = typeof res?.total === 'number' && res.total >= 0 ? res.total : listings.length
+  const totalPages =
+    typeof res?.total_pages === 'number' && res.total_pages > 0
+      ? res.total_pages
+      : Math.max(1, Math.ceil(total / limit))
+
+  return {
+    listings,
+    total,
+    page,
+    limit,
+    total_pages: totalPages
+  }
 }
 
 export function updateListingStatus(

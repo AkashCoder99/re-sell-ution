@@ -25,7 +25,7 @@ export default function BrowseListings({ token, userCity, onBack }: BrowseListin
 
   useEffect(() => {
     getCategories(token)
-      .then((r) => setCategories(r.categories))
+      .then((r) => setCategories(Array.isArray(r.categories) ? r.categories : []))
       .catch(() => {})
   }, [token])
 

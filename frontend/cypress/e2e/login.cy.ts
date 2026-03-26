@@ -45,7 +45,8 @@ describe('Login form', () => {
 
   it('shows forgot password link and navigates to it', () => {
     cy.contains('Forgot password?').click()
-    cy.contains(/forgot/i).should('be.visible')
+    cy.contains('Reset Password').should('be.visible')
+    cy.get('#forgot-password-email').should('be.visible')
   })
 
   it('shows preview mode button and enters preview', () => {

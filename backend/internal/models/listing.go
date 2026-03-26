@@ -585,6 +585,136 @@ type MyListingsPage struct {
 	TotalPages int
 }
 
+type PublicListingsPage struct {
+	Listings   []Listing
+	Total      int
+	Page       int
+	Limit      int
+	TotalPages int
+}
+
+func (s ListingStore) ListPublic(ctx context.Context, city string, categoryID *string, page, limit int) (PublicListingsPage, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 12
+	}
+	if limit > 20 {
+		limit = 20
+	}
+
+	city = strings.TrimSpace(city)
+	if categoryID != nil {
+		trimmed := strings.TrimSpace(*categoryID)
+		categoryID = &trimmed
+		if trimmed == "" {
+			categoryID = nil
+		}
+	}
+
+	where := []string{"status = 'active'", "deleted_at IS NULL"}
+	args := []any{}
+	if city != "" {
+		args = append(args, city)
+		where = append(where, fmt.Sprintf("lower(city) = lower($%d)", len(args)))
+	}
+	if categoryID != nil {
+		args = append(args, *categoryID)
+		where = append(where, fmt.Sprintf("category_id = $%d", len(args)))
+	}
+
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM listings
+		WHERE %s
+	`, strings.Join(where, " AND "))
+
+	var total int
+	if err := s.DB.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return PublicListingsPage{}, err
+	}
+
+	offset := (page - 1) * limit
+	listArgs := append(append([]any{}, args...), limit, offset)
+	limitPos := len(args) + 1
+	offsetPos := len(args) + 2
+
+	query := fmt.Sprintf(`
+		SELECT id, seller_id, category_id, title, description, condition,
+		       price, currency, city, state, latitude, longitude, status, view_count,
+		       sold_to_user_id, created_at, updated_at
+		FROM listings
+		WHERE %s
+		ORDER BY created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, strings.Join(where, " AND "), limitPos, offsetPos)
+
+	rows, err := s.DB.QueryContext(ctx, query, listArgs...)
+	if err != nil {
+		return PublicListingsPage{}, err
+	}
+	defer rows.Close()
+
+	listings := make([]Listing, 0)
+	for rows.Next() {
+		var l Listing
+		var catID, st, soldTo sql.NullString
+		var latitude, longitude sql.NullFloat64
+		if err := rows.Scan(
+			&l.ID, &l.SellerID, &catID, &l.Title, &l.Description, &l.Condition,
+			&l.Price, &l.Currency, &l.City, &st, &latitude, &longitude, &l.Status, &l.ViewCount,
+			&soldTo, &l.CreatedAt, &l.UpdatedAt,
+		); err != nil {
+			return PublicListingsPage{}, err
+		}
+		if catID.Valid {
+			v := catID.String
+			l.CategoryID = &v
+		}
+		if st.Valid {
+			l.State = st.String
+		}
+		if latitude.Valid {
+			value := latitude.Float64
+			l.Latitude = &value
+		}
+		if longitude.Valid {
+			value := longitude.Float64
+			l.Longitude = &value
+		}
+		if soldTo.Valid {
+			v := soldTo.String
+			l.SoldToUserID = &v
+		}
+		listings = append(listings, l)
+	}
+	if err := rows.Err(); err != nil {
+		return PublicListingsPage{}, err
+	}
+
+	for i := range listings {
+		imgs, err := s.listImagesByListingID(ctx, listings[i].ID)
+		if err != nil {
+			return PublicListingsPage{}, err
+		}
+		listings[i].Images = imgs
+	}
+
+	totalPages := (total + limit - 1) / limit
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	return PublicListingsPage{
+		Listings:   listings,
+		Total:      total,
+		Page:       page,
+		Limit:      limit,
+		TotalPages: totalPages,
+	}, nil
+}
+
 func (s ListingStore) ListBySeller(ctx context.Context, sellerID, statusFilter string, page, limit int) (MyListingsPage, error) {
 	if page < 1 {
 		page = 1

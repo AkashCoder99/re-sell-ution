@@ -65,6 +65,61 @@ type createListingRequest struct {
 	ImageURLs   []string `json:"image_urls"`
 }
 
+func (h ListingHandler) Browse(w http.ResponseWriter, r *http.Request) {
+	city := strings.TrimSpace(r.URL.Query().Get("city"))
+	if utf8.RuneCountInString(city) > maxListingCityLen {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "city is too long"})
+		return
+	}
+
+	var categoryID *string
+	if rawCategoryID := strings.TrimSpace(r.URL.Query().Get("category_id")); rawCategoryID != "" {
+		if _, err := uuid.Parse(rawCategoryID); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid category_id"})
+			return
+		}
+		categoryID = &rawCategoryID
+	}
+
+	page := 1
+	limit := 12
+	if p := strings.TrimSpace(r.URL.Query().Get("page")); p != "" {
+		n, err := strconv.Atoi(p)
+		if err != nil || n <= 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "page must be a positive integer"})
+			return
+		}
+		page = n
+	}
+	if l := strings.TrimSpace(r.URL.Query().Get("limit")); l != "" {
+		n, err := strconv.Atoi(l)
+		if err != nil || n <= 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "limit must be a positive integer"})
+			return
+		}
+		limit = n
+	}
+
+	res, err := h.Listings.ListPublic(r.Context(), city, categoryID, page, limit)
+	if err != nil {
+		observability.Error(r.Context(), "listings.browse.failed", map[string]any{
+			"city":        city,
+			"category_id": categoryID,
+			"error":       err.Error(),
+		})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load listings"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"listings":    res.Listings,
+		"total":       res.Total,
+		"page":        res.Page,
+		"limit":       res.Limit,
+		"total_pages": res.TotalPages,
+	})
+}
+
 func (h ListingHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.UserIDFromContext(r.Context())
 	if !ok {

@@ -62,12 +62,50 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"name":"ReSellution API","status":"ok","health":"/health","metrics":"/metrics","dashboard":"/metrics/dashboard","auth_base":"/api/v1/auth"}`))
+	})
+	mux.HandleFunc("GET /openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./openapi/openapi.yaml")
+	})
+	mux.HandleFunc("GET /docs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>ReSellution API Docs</title>
+		<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+		<style>
+			body { margin: 0; background: #0b1020; }
+			#swagger-ui { min-height: 100vh; }
+		</style>
+	</head>
+	<body>
+		<div id="swagger-ui"></div>
+		<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+		<script>
+			window.ui = SwaggerUIBundle({
+				url: '/openapi.yaml',
+				dom_id: '#swagger-ui',
+				deepLinking: true,
+				presets: [SwaggerUIBundle.presets.apis],
+				layout: 'BaseLayout'
+			})
+		</script>
+	</body>
+</html>`))
+	})
 
 	uploadDir := "./uploads"
 	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
 		log.Printf("failed to create upload dir %s: %v", uploadDir, err)
 	}
-	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
+	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
 
 	metrics := observability.NewMetrics()
 	logger := observability.DefaultLogger()
@@ -93,6 +131,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/v1/categories", categoryHandler.List)
 	mux.HandleFunc("GET /api/v1/categories/tree", categoryHandler.Tree)
+	mux.HandleFunc("GET /api/v1/listings/browse", listingHandler.Browse)
 	mux.HandleFunc("GET /api/v1/listings/search", listingHandler.Search)
 	mux.HandleFunc("POST /api/v1/listings", middleware.Auth(tokenManager, listingHandler.Create))
 	mux.HandleFunc("GET /api/v1/listings/me", middleware.Auth(tokenManager, listingHandler.ListMine))

@@ -1,0 +1,477 @@
+openapi: 3.0.3
+info:
+  title: ReSellution API
+  version: 0.1.0
+  description: Minimal OpenAPI spec for local development and API UI testing.
+servers:
+  - url: http://localhost:8080
+    description: Local backend
+
+tags:
+  - name: System
+  - name: Auth
+  - name: Users
+  - name: Categories
+  - name: Listings
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        full_name: { type: string }
+        email: { type: string, format: email }
+        city: { type: string, nullable: true }
+        state: { type: string, nullable: true }
+        bio: { type: string, nullable: true }
+        photo_url: { type: string, nullable: true }
+      required: [id, full_name, email]
+
+    AuthResponse:
+      type: object
+      properties:
+        token: { type: string }
+        user:
+          $ref: '#/components/schemas/User'
+      required: [token, user]
+
+    RegisterRequest:
+      type: object
+      properties:
+        full_name: { type: string }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+      required: [full_name, email, password]
+
+    LoginRequest:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+      required: [email, password]
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        full_name: { type: string }
+        city: { type: string }
+        state: { type: string }
+        bio: { type: string }
+        photo_url: { type: string }
+
+    Category:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        parent_id: { type: string, format: uuid, nullable: true }
+      required: [id, name, slug]
+
+    CategoriesResponse:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+      required: [categories]
+
+    ListingImage:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        listing_id: { type: string, format: uuid }
+        image_url: { type: string }
+        position: { type: integer }
+      required: [id, listing_id, image_url, position]
+
+    Listing:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        seller_id: { type: string, format: uuid }
+        category_id: { type: string, format: uuid, nullable: true }
+        title: { type: string }
+        description: { type: string }
+        condition: { type: string }
+        price: { type: number }
+        currency: { type: string }
+        city: { type: string }
+        state: { type: string, nullable: true }
+        status: { type: string }
+        view_count: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListingImage'
+      required:
+        - id
+        - seller_id
+        - title
+        - description
+        - condition
+        - price
+        - currency
+        - city
+        - status
+        - created_at
+        - updated_at
+
+    CreateListingRequest:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string }
+        condition: { type: string }
+        price: { type: number }
+        currency: { type: string, default: INR }
+        city: { type: string }
+        state: { type: string }
+        category_id: { type: string, format: uuid }
+      required: [title, description, condition, price, city]
+
+    CreateListingResponse:
+      type: object
+      properties:
+        listing:
+          $ref: '#/components/schemas/Listing'
+      required: [listing]
+
+    ListingsResponse:
+      type: object
+      properties:
+        listings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Listing'
+        total: { type: integer }
+      required: [listings, total]
+
+    UpdateStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, sold, draft]
+        sold_to_user_id:
+          type: string
+          format: uuid
+      required: [status]
+
+paths:
+  /:
+    get:
+      tags: [System]
+      summary: API root
+      responses:
+        '200':
+          description: API status
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+  /metrics:
+    get:
+      tags: [System]
+      summary: JSON metrics
+      responses:
+        '200':
+          description: Metrics payload
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+
+  /api/v1/users/me:
+    patch:
+      tags: [Users]
+      summary: Update current user profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+
+  /api/v1/categories:
+    get:
+      tags: [Categories]
+      summary: List categories
+      responses:
+        '200':
+          description: Categories list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoriesResponse'
+
+  /api/v1/listings/search:
+    get:
+      tags: [Listings]
+      summary: Search listings
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: city
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Search result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingsResponse'
+
+  /api/v1/listings:
+    post:
+      tags: [Listings]
+      summary: Create listing
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateListingRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateListingResponse'
+        '401':
+          description: Unauthorized
+
+  /api/v1/listings/me:
+    get:
+      tags: [Listings]
+      summary: List my listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [active, sold, draft]
+      responses:
+        '200':
+          description: My listings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingsResponse'
+        '401':
+          description: Unauthorized
+
+  /api/v1/listings/{id}/status:
+    patch:
+      tags: [Listings]
+      summary: Update listing status
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStatusRequest'
+      responses:
+        '200':
+          description: Listing updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  listing:
+                    $ref: '#/components/schemas/Listing'
+        '401':
+          description: Unauthorized
+
+  /api/v1/listings/{id}:
+    delete:
+      tags: [Listings]
+      summary: Delete listing
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+
+  /api/v1/listings/{id}/images:
+    post:
+      tags: [Listings]
+      summary: Upload listing image
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                position:
+                  type: integer
+      responses:
+        '201':
+          description: Image uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  image:
+                    $ref: '#/components/schemas/ListingImage'
+        '401':
+          description: Unauthorized
