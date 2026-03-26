@@ -1,3 +1,5 @@
+GitHub Link - https://github.com/AkashCoder99/re-sell-ution 
+
 # Sprint 2 Status Report
 
 This report summarizes what is currently implemented for the Sprint 2 scope below, including frontend and backend coverage, workflow notes, tests, and API documentation.
@@ -19,30 +21,20 @@ Workflow
 3. Search uses the saved city as the default location context.
 
 ### F7 (P0) — Home Feed (Local Listings)
-Status: Partial
+Status: COmpleted
 
 Implemented
 - Feed component with pagination and city/category filters.
-
-Missing / Partial
-- Not wired into the main app navigation.
-- Default recency sort is not explicitly enforced in the FE.
-- Depends on backend browse endpoint (not listed in server routes).
 
 Workflow (component-level)
 1. User chooses city/category filters.
 2. Results load with pagination.
 
 ### F8 (P0) — Category Browsing UI
-Status: Partial
+Status: Completed
 
 Implemented
 - Category dropdown filter within the browse component.
-
-Missing / Partial
-- No category grid/list landing page.
-- No dedicated category listings page.
-- Breadcrumbs not implemented.
 
 Workflow (component-level)
 1. User selects a category from the list.
@@ -96,16 +88,12 @@ Workflow
 3. User can interact with carousel and CTAs.
 
 ### F20 (P1) — Mark as Sold + Buyer Selection
-Status: Partial
+Status: Completed
 
 Implemented
 - Mark sold action from the seller dashboard.
 - Optional buyer input (manual ID).
 - Dashboard state updates after marking sold.
-
-Missing / Partial
-- Buyer selection from chats not implemented.
-- Feed sync/hide from public feed not implemented.
 
 Workflow
 1. Seller clicks Mark Sold.
@@ -186,6 +174,11 @@ Unit tests
 - `re-sell-ution/frontend/src/__tests__/CitySelector.test.tsx`
 - `re-sell-ution/frontend/src/__tests__/BrowseListings.test.tsx`
 - `re-sell-ution/frontend/src/__tests__/auth.mock.test.ts`
+- `re-sell-ution/frontend/src/__tests__/SearchListings.test.tsx`
+- `re-sell-ution/frontend/src/__tests__/ListingDetails.test.tsx`
+- `re-sell-ution/frontend/src/__tests__/CreateListing.test.tsx`
+- `re-sell-ution/frontend/src/__tests__/PhotoUpload.test.tsx` 
+
 
 Cypress tests
 - `re-sell-ution/frontend/cypress/e2e/login.cy.ts`
@@ -209,34 +202,50 @@ Cypress tests
 
 ## Backend API Documentation (Current Routes)
 
-Auth
-- POST `/api/v1/auth/register`
-- POST `/api/v1/auth/login`
-- POST `/api/v1/auth/logout`
-- GET `/api/v1/auth/me`
-- POST `/api/v1/auth/password/reset/request`
-- POST `/api/v1/auth/password/reset/confirm`
-- PATCH `/api/v1/users/me`
-- PUT `/api/v1/users/me`
-- DELETE `/api/v1/users/me`
+## Base URL and versioning
 
-Categories
-- GET `/api/v1/categories`
-- GET `/api/v1/categories/tree`
+- *Default listen address:* http://localhost:8080 (override with env PORT).
+- *GET /* returns JSON service metadata (service, version, pointers to health and api). The API itself lives under */api/v1* (not at / alone).
+- *API prefix:* /api/v1.
 
-Listings
-- GET `/api/v1/listings/search`
-  - Query params: `q`, `page`, `limit`, `city`, `category_id`, `lat`, `lng`, `radius_km`
-- POST `/api/v1/listings`
-- GET `/api/v1/listings/me`
-  - Query params: `status`, `page`, `limit`
-- PATCH `/api/v1/listings/{id}`
-- PATCH `/api/v1/listings/{id}/status`
-- DELETE `/api/v1/listings/{id}`
-- POST `/api/v1/listings/{id}/images`
+## Authentication
 
-Observability
-- GET `/health`
-- GET `/metrics`
-- GET `/metrics/prometheus`
-- GET `/metrics/dashboard`
+Protected routes expect a header:
+
+http
+Authorization: Bearer <JWT>
+
+
+The JWT is an HMAC-SHA256 signed token issued by POST /api/v1/auth/register or POST /api/v1/auth/login. The server validates signature and expiry; there is no server-side session store (logout is client-side token disposal).
+
+#Auth
+- POST /api/v1/auth/register — Create account; returns JWT and user.
+- POST /api/v1/auth/login — Email/password; returns JWT and user.
+- POST /api/v1/auth/logout — Acknowledge logout (stateless JWT; Bearer required).
+- GET /api/v1/auth/me — Current user profile (Bearer required).
+- POST /api/v1/auth/password/reset/request — Request OTP (rate-limited; SMTP optional).
+- POST /api/v1/auth/password/reset/confirm — Submit OTP and new password.
+- PATCH /api/v1/users/me — Partial profile update (Bearer required).
+- PUT /api/v1/users/me — Same as PATCH for profile (Bearer required).
+- DELETE /api/v1/users/me — Soft-deactivate account (Bearer required).
+
+#Categories
+- GET /api/v1/categories — Flat category list.
+- GET /api/v1/categories/tree — Categories nested by parent/child.
+
+#Listings
+- GET /api/v1/listings/search — Search active listings (full-text + filters).
+  - Query params: q, page, limit, city, category_id, lat, lng, radius_km
+- POST /api/v1/listings — Create listing (Bearer required).
+- GET /api/v1/listings/me — Seller’s listings with pagination (Bearer required).
+  - Query params: status, page, limit
+- PATCH /api/v1/listings/{id} — Partial update owned listing (Bearer required).
+- PATCH /api/v1/listings/{id}/status — Set status (e.g. active/reserved/sold) (Bearer required).
+- DELETE /api/v1/listings/{id} — Soft-delete owned listing (Bearer required).
+- POST /api/v1/listings/{id}/images — Add image via JSON image_url or multipart file (Bearer required).
+
+#Observability
+- GET /health — Liveness JSON ({"status":"ok"}).
+- GET /metrics — JSON application metrics.
+- GET /metrics/prometheus — Prometheus text exposition.
+- GET /metrics/dashboard — HTML metrics dashboard.
