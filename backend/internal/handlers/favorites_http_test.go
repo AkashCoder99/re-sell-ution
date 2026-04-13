@@ -86,3 +86,19 @@ func TestFavoriteHandlerListInvalidPagination(t *testing.T) {
 		t.Fatalf("expected 400, got %d", rec.Code)
 	}
 }
+
+func TestFavoriteHandlerStatusInvalidListingID(t *testing.T) {
+	const secret = "favorite-http-test-secret-4"
+	tm := utils.NewTokenManager(secret)
+	h := FavoriteHandler{}
+	wrapped := middleware.Auth(tm, h.Status)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/favorites/x", nil)
+	req.SetPathValue("listing_id", "bad-id")
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t, secret, "30303030-3030-3030-3030-303030303030"))
+	wrapped(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}

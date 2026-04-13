@@ -223,6 +223,77 @@
               "path": ["api", "v1", "listings", "{{listingId}}"]
             }
           }
+        },
+        {
+          "name": "POST /api/v1/listings/{id}/report",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Spam or suspicious listing\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/listings/{{listingId}}/report",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "listings", "{{listingId}}", "report"]
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/favorites",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/favorites?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "favorites"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/favorites/{listing_id}",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/favorites/{{listingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "favorites", "{{listingId}}"]
+            }
+          }
+        },
+        {
+          "name": "PUT /api/v1/favorites/{listing_id}",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/favorites/{{listingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "favorites", "{{listingId}}"]
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/v1/favorites/{listing_id}",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/favorites/{{listingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "favorites", "{{listingId}}"]
+            }
+          }
         }
       ]
     },

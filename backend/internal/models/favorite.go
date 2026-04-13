@@ -55,6 +55,25 @@ func (s FavoriteStore) Remove(ctx context.Context, userID, listingID string) err
 	return err
 }
 
+func (s FavoriteStore) Has(ctx context.Context, userID, listingID string) (bool, error) {
+	var exists int
+	err := s.DB.QueryRowContext(ctx, `
+		SELECT 1
+		FROM favorites f
+		JOIN listings l ON l.id = f.listing_id
+		WHERE f.user_id = $1
+		  AND f.listing_id = $2
+		  AND l.deleted_at IS NULL
+	`, userID, listingID).Scan(&exists)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func (s FavoriteStore) ListByUser(ctx context.Context, userID string, page, limit int) (FavoritesPage, error) {
 	if page < 1 {
 		page = 1
@@ -117,4 +136,3 @@ func (s FavoriteStore) ListByUser(ctx context.Context, userID string, page, limi
 		TotalPages: totalPages,
 	}, nil
 }
-

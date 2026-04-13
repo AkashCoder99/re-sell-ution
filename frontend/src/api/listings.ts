@@ -200,6 +200,7 @@ const mockListings: Listing[] = [
   }
 ]
 const mockListingImages: ListingImage[] = mockListings.flatMap((l) => l.images ?? [])
+const mockFavoriteIds = new Set<string>()
 const mockCategories: Category[] = [
   { id: 'cat_1', name: 'Electronics', slug: 'electronics', parent_id: null },
   { id: 'cat_2', name: 'Furniture', slug: 'furniture', parent_id: null },
@@ -230,7 +231,7 @@ async function mockListingsApi<TResponse>(
   }
   const authHeader = (options.headers as Record<string, string>)?.Authorization
   const token = authHeader?.replace('Bearer ', '')
-  if (!token && path.startsWith('/api/v1/listings')) {
+  if (!token && (path.startsWith('/api/v1/listings') || path.startsWith('/api/v1/favorites'))) {
     throw new Error('Unauthorized')
   }
 
@@ -372,6 +373,31 @@ async function mockListingsApi<TResponse>(
       if (i !== -1) mockListingImages.splice(i, 1)
     })
     return { message: 'deleted' } as TResponse
+  }
+
+  // GET /api/v1/favorites/:listing_id
+  if (path.match(/^\/api\/v1\/favorites\/[^/]+$/) && method === 'GET') {
+    const listingId = path.split('/')[4]
+    return { favorited: mockFavoriteIds.has(listingId) } as TResponse
+  }
+
+  // PUT /api/v1/favorites/:listing_id
+  if (path.match(/^\/api\/v1\/favorites\/[^/]+$/) && method === 'PUT') {
+    const listingId = path.split('/')[4]
+    mockFavoriteIds.add(listingId)
+    return { message: 'favorited' } as TResponse
+  }
+
+  // DELETE /api/v1/favorites/:listing_id
+  if (path.match(/^\/api\/v1\/favorites\/[^/]+$/) && method === 'DELETE') {
+    const listingId = path.split('/')[4]
+    mockFavoriteIds.delete(listingId)
+    return { message: 'removed' } as TResponse
+  }
+
+  // POST /api/v1/listings/:id/report
+  if (path.match(/^\/api\/v1\/listings\/[^/]+\/report$/) && method === 'POST') {
+    return { message: 'listing reported' } as TResponse
   }
 
   // POST /api/v1/listings/:id/images — upload image (mock: accept URL or base64)
@@ -597,5 +623,50 @@ export function uploadListingImageFile(
     method: 'POST',
     token,
     body: form
+  })
+}
+
+export interface FavoriteStatusResponse {
+  favorited: boolean
+}
+
+export function getFavoriteStatus(
+  token: string,
+  listingId: string
+): Promise<FavoriteStatusResponse> {
+  return request<FavoriteStatusResponse>(`/api/v1/favorites/${listingId}`, {
+    token
+  })
+}
+
+export function addFavorite(
+  token: string,
+  listingId: string
+): Promise<{ message: string }> {
+  return request<{ message: string }>(`/api/v1/favorites/${listingId}`, {
+    method: 'PUT',
+    token
+  })
+}
+
+export function removeFavorite(
+  token: string,
+  listingId: string
+): Promise<{ message: string }> {
+  return request<{ message: string }>(`/api/v1/favorites/${listingId}`, {
+    method: 'DELETE',
+    token
+  })
+}
+
+export function reportListing(
+  token: string,
+  listingId: string,
+  payload: { reason?: string } = {}
+): Promise<{ message: string }> {
+  return request<{ message: string }>(`/api/v1/listings/${listingId}/report`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
   })
 }
