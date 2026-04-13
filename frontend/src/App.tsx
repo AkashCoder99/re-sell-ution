@@ -5,6 +5,12 @@ import type { LoginRequest, RegisterRequest } from './api/auth'
 import type { PublicUser, UpdateProfileRequest } from './types/user'
 import type { Listing } from './types/listing'
 import type { ChatConversation, ChatMessage } from './types/chat'
+import {
+  getConversationById,
+  getOrCreateConversation,
+  markConversationRead,
+  sendConversationMessage
+} from './api/chat'
 import CitySelector from './components/CitySelector'
 import ProfileEdit from './components/ProfileEdit'
 import ForgotPassword from './components/ForgotPassword'
@@ -15,6 +21,7 @@ import MyListingsDashboard from './components/MyListingsDashboard'
 import SearchListings from './components/SearchListings'
 import BrowseListings from './components/BrowseListings'
 import ChatThread from './components/ChatThread'
+import ConversationInbox from './components/ConversationInbox'
 import {
   IconEmail,
   IconLocation,
@@ -54,36 +61,11 @@ type ViewMode =
   | 'profile'
   | 'profile-edit'
   | 'search'
+  | 'inbox'
   | 'create-listing'
   | 'my-listings'
   | 'browse'
   | 'chat'
-
-const CHAT_STORAGE_KEY = 'resellution_conversations'
-
-function loadConversations(): ChatConversation[] {
-  try {
-    const raw = localStorage.getItem(CHAT_STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return []
-    return parsed as ChatConversation[]
-  } catch {
-    return []
-  }
-}
-
-function saveConversations(conversations: ChatConversation[]) {
-  try {
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(conversations))
-  } catch {
-    // ignore storage failures
-  }
-}
-
-function buildConversationId(buyerId: string, sellerId: string, listingId: string) {
-  return `${buyerId}::${sellerId}::${listingId}`
-}
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('login')
@@ -101,6 +83,7 @@ export default function App() {
   const [profileSearch, setProfileSearch] = useState('')
   const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null)
   const [chatReturnView, setChatReturnView] = useState<ViewMode>('profile')
+  const [chatInboxRefresh, setChatInboxRefresh] = useState(0)
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user])
   const isAuthLandingView = !isAuthenticated && (viewMode === 'login' || viewMode === 'register')
   const isWideView =
@@ -108,6 +91,7 @@ export default function App() {
     (viewMode === 'create-listing' ||
       viewMode === 'my-listings' ||
       viewMode === 'search' ||
+      viewMode === 'inbox' ||
       viewMode === 'browse' ||
       viewMode === 'chat')
 
@@ -119,58 +103,58 @@ export default function App() {
     }
 
     try {
-      const buyerId = user.id
-      const sellerId = listing.seller_id
-      const conversationId = buildConversationId(buyerId, sellerId, listing.id)
-      const conversations = loadConversations()
-      const existing = conversations.find((c) => c.id === conversationId)
-      const now = new Date().toISOString()
-      const conversation: ChatConversation =
-        existing ||
-        ({
-          id: conversationId,
-          listing_id: listing.id,
-          listing_title: listing.title,
-          listing_price: Number(listing.price),
-          listing_city: listing.city,
-          buyer_id: buyerId,
-          seller_id: sellerId,
-          seller_name: listing.seller_id,
-          created_at: now,
-          updated_at: now,
-          messages: []
-        } satisfies ChatConversation)
-
-      if (!existing) {
-        saveConversations([...conversations, conversation])
-      }
+      const conversation = await getOrCreateConversation(token, {
+        buyer_id: user.id,
+        seller_id: listing.seller_id,
+        seller_name: listing.seller_id,
+        listing_id: listing.id,
+        listing_title: listing.title,
+        listing_price: Number(listing.price),
+        listing_city: listing.city
+      })
 
       setActiveConversation(conversation)
       setChatReturnView(viewMode)
+      setChatInboxRefresh((value) => value + 1)
       setViewMode('chat')
     } catch (error: unknown) {
       throw new Error(error instanceof Error ? error.message : 'Unable to start chat.')
     }
   }
 
-  function handleSendMessage(text: string) {
+  async function handleSendMessage(text: string) {
     if (!activeConversation || !user) return
-    const newMessage: ChatMessage = {
-      id: `${activeConversation.id}::${Date.now()}`,
+
+    const newMessage: ChatMessage = await sendConversationMessage(token, activeConversation.id, {
       sender_id: user.id,
-      text,
-      created_at: new Date().toISOString()
-    }
+      text
+    })
+
     const updatedConversation: ChatConversation = {
       ...activeConversation,
       updated_at: newMessage.created_at,
+      last_message_text: text,
       messages: [...activeConversation.messages, newMessage]
     }
-    setActiveConversation(updatedConversation)
 
-    const conversations = loadConversations()
-    const next = conversations.map((c) => (c.id === updatedConversation.id ? updatedConversation : c))
-    saveConversations(next)
+    setActiveConversation(updatedConversation)
+    setChatInboxRefresh((value) => value + 1)
+  }
+
+  async function handleOpenConversation(conversationId: string) {
+    if (!user) return
+
+    const conversation = await getConversationById(token, conversationId)
+    await markConversationRead(token, conversationId, user.id)
+
+    const updatedConversation = await getConversationById(token, conversationId)
+    setActiveConversation({
+      ...updatedConversation,
+      messages: updatedConversation.messages || conversation.messages
+    })
+    setChatReturnView('inbox')
+    setChatInboxRefresh((value) => value + 1)
+    setViewMode('chat')
   }
 
   useEffect(() => {
@@ -373,6 +357,15 @@ export default function App() {
             token={token}
             userCity={user.city || ''}
             onBack={() => setViewMode('profile')}
+            onStartChat={handleStartChat}
+          />
+        ) : isAuthenticated && viewMode === 'inbox' && user ? (
+          <ConversationInbox
+            token={token}
+            currentUserId={user.id}
+            refreshKey={chatInboxRefresh}
+            onBack={() => setViewMode('profile')}
+            onOpenConversation={handleOpenConversation}
           />
         ) : isAuthenticated && viewMode === 'chat' && user && activeConversation ? (
           <ChatThread
@@ -502,6 +495,10 @@ export default function App() {
                   <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('search')}>
                     <IconSearch className="profile-action-icon" aria-hidden />
                     <span>Search by Keyword</span>
+                  </button>
+                  <button type="button" className="profile-action-btn" onClick={() => setViewMode('inbox')}>
+                    <IconSearch className="profile-action-icon" aria-hidden />
+                    <span>Inbox</span>
                   </button>
                 </div>
               </div>

@@ -79,7 +79,7 @@ export default function SearchListings({ token, userCity, onBack, onStartChat }:
   useEffect(() => {
     setRecent(loadRecent())
     getCategories(token)
-      .then((res) => setCategories(res.categories))
+      .then((res) => setCategories(Array.isArray(res.categories) ? res.categories : []))
       .catch(() => setCategories([]))
     try {
       const prefill = localStorage.getItem(PREFILL_KEY) || ''
@@ -116,7 +116,7 @@ export default function SearchListings({ token, userCity, onBack, onStartChat }:
     setLastQuery(safeQuery)
     try {
       const data = await searchListings(token, { query: safeQuery, city: userCity || undefined })
-      setResults(data.listings)
+      setResults(Array.isArray(data.listings) ? data.listings : [])
       setPage(1)
       const updated = [safeQuery, ...recent.filter((q) => q !== safeQuery)].slice(0, MAX_RECENT)
       setRecent(updated)
@@ -135,9 +135,10 @@ export default function SearchListings({ token, userCity, onBack, onStartChat }:
   }
 
   const filteredResults = useMemo(() => {
+    const safeResults = Array.isArray(results) ? results : []
     const min = filters.minPrice ? Number(filters.minPrice) : null
     const max = filters.maxPrice ? Number(filters.maxPrice) : null
-    return results.filter((listing) => {
+    return safeResults.filter((listing) => {
       if (filters.categoryId && listing.category_id !== filters.categoryId) return false
       if (filters.condition && listing.condition !== filters.condition) return false
       if (filters.city && listing.city.toLowerCase() !== filters.city.toLowerCase()) return false

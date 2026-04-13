@@ -23,7 +23,7 @@ function formatRelativeTime(iso: string): string {
   return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
-export default function ListingDetails({ listing, onClose, onBack }: ListingDetailsProps) {
+export default function ListingDetails({ listing, onClose, onBack, onStartChat }: ListingDetailsProps) {
   const images = listing.images || []
   const [index, setIndex] = useState(0)
   const [favorite, setFavorite] = useState(false)

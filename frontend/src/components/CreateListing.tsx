@@ -64,9 +64,11 @@ export default function CreateListing({
 
   useEffect(() => {
     getCategories(token)
-      .then((res) => setCategories(res.categories))
+      .then((res) => setCategories(Array.isArray(res.categories) ? res.categories : []))
       .catch(() => setCategories([]))
   }, [token])
+
+  const safeCategories = Array.isArray(categories) ? categories : []
 
   const stepIndex = STEPS.indexOf(step)
   const progressPercent = ((stepIndex + 1) / STEPS.length) * 100
@@ -292,7 +294,7 @@ export default function CreateListing({
                 onChange={handleChange}
               >
                 <option value="">Select</option>
-                {categories.map((c) => (
+                {safeCategories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
@@ -407,9 +409,9 @@ export default function CreateListing({
                 &nbsp;·&nbsp;
                 💰 {draft.currency} {Number(draft.price).toLocaleString()}
               </p>
-              {categories.find((c) => c.id === draft.category_id) && (
+              {safeCategories.find((c) => c.id === draft.category_id) && (
                 <p className="create-listing-review-category">
-                  📂 {categories.find((c) => c.id === draft.category_id)?.name}
+                  📂 {safeCategories.find((c) => c.id === draft.category_id)?.name}
                 </p>
               )}
               <p className="create-listing-review-desc">{draft.description || '-'}</p>

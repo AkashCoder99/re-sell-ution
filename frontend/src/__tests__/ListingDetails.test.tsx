@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import ListingDetails from '../components/ListingDetails'
+import type { Listing } from '../types/listing'
 
-const baseListing = {
+const baseListing: Listing = {
   id: 'l1',
   seller_id: 's1',
   category_id: null,
@@ -21,7 +22,7 @@ const baseListing = {
     { id: 'i1', listing_id: 'l1', image_url: 'https://placehold.co/400x300?text=1', position: 0 },
     { id: 'i2', listing_id: 'l1', image_url: 'https://placehold.co/400x300?text=2', position: 1 }
   ]
-} as const
+}
 
 describe('ListingDetails', () => {
   it('renders title and price', () => {

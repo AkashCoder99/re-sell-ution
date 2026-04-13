@@ -3,6 +3,7 @@ export type ChatMessage = {
   sender_id: string
   text: string
   created_at: string
+  read_by?: string[]
 }
 
 export type ChatConversation = {
@@ -14,7 +15,10 @@ export type ChatConversation = {
   buyer_id: string
   seller_id: string
   seller_name: string
+  participant_name?: string
   created_at: string
   updated_at: string
+  unread_count?: number
+  last_message_text?: string
   messages: ChatMessage[]
 }

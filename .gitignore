@@ -39,6 +39,7 @@ frontend/.vite/
 # ------------------------------
 bin/
 backend/bin/
+backend/uploads/
 .gocache/
 *.test
 *.out

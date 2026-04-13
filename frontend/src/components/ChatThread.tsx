@@ -6,7 +6,7 @@ interface ChatThreadProps {
   conversation: ChatConversation
   currentUserId: string
   onBack: () => void
-  onSendMessage: (text: string) => void
+  onSendMessage: (text: string) => void | Promise<void>
 }
 
 export default function ChatThread({
@@ -16,6 +16,7 @@ export default function ChatThread({
   onSendMessage
 }: ChatThreadProps) {
   const [draft, setDraft] = useState('')
+  const [sending, setSending] = useState(false)
 
   const messages = useMemo(
     () => [...conversation.messages].sort((a, b) => a.created_at.localeCompare(b.created_at)),
@@ -71,12 +72,17 @@ export default function ChatThread({
 
       <form
         className="chat-thread-input"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault()
           const trimmed = draft.trim()
-          if (!trimmed) return
-          onSendMessage(trimmed)
-          setDraft('')
+          if (!trimmed || sending) return
+          setSending(true)
+          try {
+            await onSendMessage(trimmed)
+            setDraft('')
+          } finally {
+            setSending(false)
+          }
         }}
       >
         <input
@@ -85,8 +91,8 @@ export default function ChatThread({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
-        <button type="submit" className="profile-edit-btn primary" disabled={!draft.trim()}>
-          Send
+        <button type="submit" className="profile-edit-btn primary" disabled={!draft.trim() || sending}>
+          {sending ? 'Sending...' : 'Send'}
         </button>
       </form>
     </div>

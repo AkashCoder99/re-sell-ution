@@ -29,7 +29,45 @@ vi.mock('../api/listings', () => ({
 
 import SearchListings from '../components/SearchListings'
 
+function ensureLocalStorage() {
+  const candidate = globalThis.localStorage as
+    | {
+        getItem?: (key: string) => string | null
+        setItem?: (key: string, value: string) => void
+        removeItem?: (key: string) => void
+        clear?: () => void
+      }
+    | undefined
+
+  const hasAPI =
+    candidate &&
+    typeof candidate.getItem === 'function' &&
+    typeof candidate.setItem === 'function' &&
+    typeof candidate.removeItem === 'function' &&
+    typeof candidate.clear === 'function'
+
+  if (hasAPI) return
+
+  const store = new Map<string, string>()
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => (store.has(key) ? store.get(key)! : null),
+      setItem: (key: string, value: string) => {
+        store.set(key, value)
+      },
+      removeItem: (key: string) => {
+        store.delete(key)
+      },
+      clear: () => {
+        store.clear()
+      }
+    }
+  })
+}
+
 beforeEach(() => {
+  ensureLocalStorage()
   localStorage.clear()
 })
 
