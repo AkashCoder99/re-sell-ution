@@ -9,7 +9,8 @@
     { "key": "token", "value": "" },
     { "key": "listingId", "value": "" },
     { "key": "categoryId", "value": "" },
-    { "key": "conversationId", "value": "" }
+    { "key": "conversationId", "value": "" },
+    { "key": "notificationId", "value": "" }
   ],
   "item": [
     {
@@ -331,6 +332,77 @@
               "raw": "{{baseUrl}}/api/v1/chat/conversations/{{conversationId}}/read",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "chat", "conversations", "{{conversationId}}", "read"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "GET /api/v1/notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = json && Array.isArray(json.notifications) ? json.notifications[0] : null;",
+                  "if (first && first.id) { pm.collectionVariables.set('notificationId', first.id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/v1/notifications?unread=true",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications?unread=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications"],
+              "query": [{ "key": "unread", "value": "true" }]
+            }
+          }
+        },
+        {
+          "name": "PATCH /api/v1/notifications/{id}/read",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/{{notificationId}}/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "{{notificationId}}", "read"]
+            }
+          }
+        },
+        {
+          "name": "PATCH /api/v1/notifications/read-all",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/read-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "read-all"]
             }
           }
         }
