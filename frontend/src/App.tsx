@@ -3,6 +3,8 @@ import type { ChangeEvent, FormEvent } from 'react'
 import { getMe, login, logout, register, updateProfile } from './api/auth'
 import type { LoginRequest, RegisterRequest } from './api/auth'
 import type { PublicUser, UpdateProfileRequest } from './types/user'
+import type { Listing } from './types/listing'
+import type { ChatConversation, ChatMessage } from './types/chat'
 import CitySelector from './components/CitySelector'
 import ProfileEdit from './components/ProfileEdit'
 import ForgotPassword from './components/ForgotPassword'
@@ -12,6 +14,7 @@ import CreateListing from './components/CreateListing'
 import MyListingsDashboard from './components/MyListingsDashboard'
 import SearchListings from './components/SearchListings'
 import BrowseListings from './components/BrowseListings'
+import ChatThread from './components/ChatThread'
 import {
   IconEmail,
   IconLocation,
@@ -54,6 +57,33 @@ type ViewMode =
   | 'create-listing'
   | 'my-listings'
   | 'browse'
+  | 'chat'
+
+const CHAT_STORAGE_KEY = 'resellution_conversations'
+
+function loadConversations(): ChatConversation[] {
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed as ChatConversation[]
+  } catch {
+    return []
+  }
+}
+
+function saveConversations(conversations: ChatConversation[]) {
+  try {
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(conversations))
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function buildConversationId(buyerId: string, sellerId: string, listingId: string) {
+  return `${buyerId}::${sellerId}::${listingId}`
+}
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('login')
@@ -69,11 +99,79 @@ export default function App() {
   const [showRegisterPassword, setShowRegisterPassword] = useState<boolean>(false)
   const [listingsRefresh, setListingsRefresh] = useState(0)
   const [profileSearch, setProfileSearch] = useState('')
+  const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null)
+  const [chatReturnView, setChatReturnView] = useState<ViewMode>('profile')
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user])
   const isAuthLandingView = !isAuthenticated && (viewMode === 'login' || viewMode === 'register')
   const isWideView =
     isAuthenticated &&
-    (viewMode === 'create-listing' || viewMode === 'my-listings' || viewMode === 'search' || viewMode === 'browse')
+    (viewMode === 'create-listing' ||
+      viewMode === 'my-listings' ||
+      viewMode === 'search' ||
+      viewMode === 'browse' ||
+      viewMode === 'chat')
+
+  async function handleStartChat(listing: Listing) {
+    if (!isAuthenticated || !user) {
+      setMessage('Please log in to start a chat.')
+      setViewMode('login')
+      throw new Error('Login required')
+    }
+
+    try {
+      const buyerId = user.id
+      const sellerId = listing.seller_id
+      const conversationId = buildConversationId(buyerId, sellerId, listing.id)
+      const conversations = loadConversations()
+      const existing = conversations.find((c) => c.id === conversationId)
+      const now = new Date().toISOString()
+      const conversation: ChatConversation =
+        existing ||
+        ({
+          id: conversationId,
+          listing_id: listing.id,
+          listing_title: listing.title,
+          listing_price: Number(listing.price),
+          listing_city: listing.city,
+          buyer_id: buyerId,
+          seller_id: sellerId,
+          seller_name: listing.seller_id,
+          created_at: now,
+          updated_at: now,
+          messages: []
+        } satisfies ChatConversation)
+
+      if (!existing) {
+        saveConversations([...conversations, conversation])
+      }
+
+      setActiveConversation(conversation)
+      setChatReturnView(viewMode)
+      setViewMode('chat')
+    } catch (error: unknown) {
+      throw new Error(error instanceof Error ? error.message : 'Unable to start chat.')
+    }
+  }
+
+  function handleSendMessage(text: string) {
+    if (!activeConversation || !user) return
+    const newMessage: ChatMessage = {
+      id: `${activeConversation.id}::${Date.now()}`,
+      sender_id: user.id,
+      text,
+      created_at: new Date().toISOString()
+    }
+    const updatedConversation: ChatConversation = {
+      ...activeConversation,
+      updated_at: newMessage.created_at,
+      messages: [...activeConversation.messages, newMessage]
+    }
+    setActiveConversation(updatedConversation)
+
+    const conversations = loadConversations()
+    const next = conversations.map((c) => (c.id === updatedConversation.id ? updatedConversation : c))
+    saveConversations(next)
+  }
 
   useEffect(() => {
     if (!token) {
@@ -105,6 +203,12 @@ export default function App() {
         setUser(null)
       })
   }, [token])
+
+  useEffect(() => {
+    if (viewMode === 'chat' && !activeConversation) {
+      setViewMode('profile')
+    }
+  }, [viewMode, activeConversation])
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -270,11 +374,19 @@ export default function App() {
             userCity={user.city || ''}
             onBack={() => setViewMode('profile')}
           />
+        ) : isAuthenticated && viewMode === 'chat' && user && activeConversation ? (
+          <ChatThread
+            conversation={activeConversation}
+            currentUserId={user.id}
+            onBack={() => setViewMode(chatReturnView)}
+            onSendMessage={handleSendMessage}
+          />
         ) : isAuthenticated && viewMode === 'search' && user ? (
           <SearchListings
             token={token}
             userCity={user.city || ''}
             onBack={() => setViewMode('profile')}
+            onStartChat={handleStartChat}
           />
         ) : isAuthenticated && viewMode === 'create-listing' && user ? (
           <CreateListing
