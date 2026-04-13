@@ -22,6 +22,7 @@ const (
 	searchMaxLimit      = 20
 	searchDefaultRadius = 25.0
 	searchMaxRadiusKM   = 200.0
+	searchDefaultSort   = "relevance"
 )
 
 func (h ListingHandler) Search(w http.ResponseWriter, r *http.Request) {
@@ -82,6 +83,36 @@ func parseListingSearchParams(r *http.Request) (models.ListingSearchParams, erro
 		categoryID = &rawCategoryID
 	}
 
+	var condition *string
+	if rawCondition := strings.TrimSpace(r.URL.Query().Get("condition")); rawCondition != "" {
+		if _, ok := allowedConditions[rawCondition]; !ok {
+			return models.ListingSearchParams{}, errors.New("invalid condition")
+		}
+		condition = &rawCondition
+	}
+
+	minPrice, err := parseOptionalNonNegativeFloatQuery(r, "min_price")
+	if err != nil {
+		return models.ListingSearchParams{}, errors.New("invalid min_price")
+	}
+	maxPrice, err := parseOptionalNonNegativeFloatQuery(r, "max_price")
+	if err != nil {
+		return models.ListingSearchParams{}, errors.New("invalid max_price")
+	}
+	if minPrice != nil && maxPrice != nil && *minPrice > *maxPrice {
+		return models.ListingSearchParams{}, errors.New("min_price cannot be greater than max_price")
+	}
+
+	sortBy := strings.TrimSpace(r.URL.Query().Get("sort"))
+	if sortBy == "" {
+		sortBy = searchDefaultSort
+	}
+	switch sortBy {
+	case "relevance", "created_at_desc", "created_at_asc", "price_asc", "price_desc":
+	default:
+		return models.ListingSearchParams{}, errors.New("invalid sort")
+	}
+
 	latitude, err := parseOptionalFloatQuery(r, "lat")
 	if err != nil {
 		return models.ListingSearchParams{}, errors.New("invalid lat")
@@ -119,6 +150,10 @@ func parseListingSearchParams(r *http.Request) (models.ListingSearchParams, erro
 		TSQuery:    tsQuery,
 		City:       city,
 		CategoryID: categoryID,
+		Condition:  condition,
+		MinPrice:   minPrice,
+		MaxPrice:   maxPrice,
+		Sort:       sortBy,
 		Latitude:   latitude,
 		Longitude:  longitude,
 		RadiusKM:   radiusKM,
@@ -200,4 +235,15 @@ func parseOptionalFloatQuery(r *http.Request, key string) (*float64, error) {
 		return nil, err
 	}
 	return &value, nil
+}
+
+func parseOptionalNonNegativeFloatQuery(r *http.Request, key string) (*float64, error) {
+	value, err := parseOptionalFloatQuery(r, key)
+	if err != nil {
+		return nil, err
+	}
+	if value != nil && *value < 0 {
+		return nil, errors.New(key + " must be non-negative")
+	}
+	return value, nil
 }

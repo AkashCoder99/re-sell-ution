@@ -18,6 +18,10 @@ type ListingSearchParams struct {
 	TSQuery    string
 	City       string
 	CategoryID *string
+	Condition  *string
+	MinPrice   *float64
+	MaxPrice   *float64
+	Sort       string
 	Latitude   *float64
 	Longitude  *float64
 	RadiusKM   *float64
@@ -62,10 +66,7 @@ func (s ListingStore) Search(ctx context.Context, params ListingSearchParams) (L
 	limitPos := len(args) + 1
 	offsetPos := len(args) + 2
 
-	distanceOrder := ""
-	if distanceExpr != "NULL::double precision" {
-		distanceOrder = distanceExpr + " ASC NULLS LAST, "
-	}
+	orderClause := buildListingSearchOrderClause(params.Sort, distanceExpr)
 
 	query := fmt.Sprintf(`
 		SELECT id, seller_id, category_id, title, description, condition,
@@ -73,11 +74,9 @@ func (s ListingStore) Search(ctx context.Context, params ListingSearchParams) (L
 		       sold_to_user_id, created_at, updated_at
 		FROM listings l
 		WHERE %s
-		ORDER BY ts_rank_cd((%s), to_tsquery('simple', $1)) DESC,
-		         %s
-		         created_at DESC
+		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, whereClause, listingSearchVectorSQL, distanceOrder, limitPos, offsetPos)
+	`, whereClause, orderClause, limitPos, offsetPos)
 
 	rows, err := s.DB.QueryContext(ctx, query, listArgs...)
 	if err != nil {
@@ -163,6 +162,20 @@ func buildListingSearchFilters(params ListingSearchParams) (string, []any, strin
 		where = append(where, fmt.Sprintf("l.category_id = $%d", len(args)))
 	}
 
+	if params.Condition != nil && strings.TrimSpace(*params.Condition) != "" {
+		args = append(args, strings.TrimSpace(*params.Condition))
+		where = append(where, fmt.Sprintf("l.condition = $%d", len(args)))
+	}
+
+	if params.MinPrice != nil {
+		args = append(args, *params.MinPrice)
+		where = append(where, fmt.Sprintf("l.price >= $%d", len(args)))
+	}
+	if params.MaxPrice != nil {
+		args = append(args, *params.MaxPrice)
+		where = append(where, fmt.Sprintf("l.price <= $%d", len(args)))
+	}
+
 	if params.Latitude != nil && params.Longitude != nil && params.RadiusKM != nil {
 		latMin, latMax, lngMin, lngMax := geoBoundingBox(*params.Latitude, *params.Longitude, *params.RadiusKM)
 
@@ -189,6 +202,25 @@ func buildListingSearchFilters(params ListingSearchParams) (string, []any, strin
 	}
 
 	return strings.Join(where, " AND "), args, distanceExpr
+}
+
+func buildListingSearchOrderClause(sortBy, distanceExpr string) string {
+	switch sortBy {
+	case "created_at_asc":
+		return "l.created_at ASC, l.id ASC"
+	case "created_at_desc":
+		return "l.created_at DESC, l.id ASC"
+	case "price_asc":
+		return "l.price ASC, l.created_at DESC, l.id ASC"
+	case "price_desc":
+		return "l.price DESC, l.created_at DESC, l.id ASC"
+	default:
+		distanceOrder := ""
+		if distanceExpr != "NULL::double precision" {
+			distanceOrder = distanceExpr + " ASC NULLS LAST, "
+		}
+		return fmt.Sprintf("ts_rank_cd((%s), to_tsquery('simple', $1)) DESC, %s l.created_at DESC, l.id ASC", listingSearchVectorSQL, distanceOrder)
+	}
 }
 
 func geoBoundingBox(latitude, longitude, radiusKM float64) (float64, float64, float64, float64) {

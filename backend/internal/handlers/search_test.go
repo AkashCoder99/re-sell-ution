@@ -36,7 +36,7 @@ func TestParseListingSearchParamsRequiresCoordinatePair(t *testing.T) {
 func TestParseListingSearchParamsParsesFilters(t *testing.T) {
 	req := httptest.NewRequest(
 		"GET",
-		"/api/v1/listings/search?q=Bike+Helmet&page=2&limit=5&city=Gainesville&category_id=123e4567-e89b-12d3-a456-426614174000&lat=29.6516&lng=-82.3248&radius_km=15",
+		"/api/v1/listings/search?q=Bike+Helmet&page=2&limit=5&city=Gainesville&category_id=123e4567-e89b-12d3-a456-426614174000&condition=good&min_price=10&max_price=50&sort=price_asc&lat=29.6516&lng=-82.3248&radius_km=15",
 		nil,
 	)
 
@@ -59,6 +59,18 @@ func TestParseListingSearchParamsParsesFilters(t *testing.T) {
 	}
 	if params.CategoryID == nil || *params.CategoryID != "123e4567-e89b-12d3-a456-426614174000" {
 		t.Fatalf("expected parsed category id, got %+v", params.CategoryID)
+	}
+	if params.Condition == nil || *params.Condition != "good" {
+		t.Fatalf("expected condition good, got %+v", params.Condition)
+	}
+	if params.MinPrice == nil || *params.MinPrice != 10 {
+		t.Fatalf("expected min_price 10, got %+v", params.MinPrice)
+	}
+	if params.MaxPrice == nil || *params.MaxPrice != 50 {
+		t.Fatalf("expected max_price 50, got %+v", params.MaxPrice)
+	}
+	if params.Sort != "price_asc" {
+		t.Fatalf("expected sort price_asc, got %q", params.Sort)
 	}
 	if params.Latitude == nil || params.Longitude == nil || params.RadiusKM == nil {
 		t.Fatal("expected parsed geo filters")
@@ -140,6 +152,45 @@ func TestParseListingSearchParamsInvalidCategoryID(t *testing.T) {
 	req := httptest.NewRequest("GET", "/api/v1/listings/search?q=hello&category_id=bad", nil)
 	if _, err := parseListingSearchParams(req); err == nil {
 		t.Fatal("expected invalid category_id")
+	}
+}
+
+func TestParseListingSearchParamsInvalidCondition(t *testing.T) {
+	req := httptest.NewRequest("GET", "/api/v1/listings/search?q=hello&condition=broken", nil)
+	if _, err := parseListingSearchParams(req); err == nil {
+		t.Fatal("expected invalid condition")
+	}
+}
+
+func TestParseListingSearchParamsInvalidSort(t *testing.T) {
+	req := httptest.NewRequest("GET", "/api/v1/listings/search?q=hello&sort=rating", nil)
+	if _, err := parseListingSearchParams(req); err == nil {
+		t.Fatal("expected invalid sort")
+	}
+}
+
+func TestParseListingSearchParamsInvalidPriceRange(t *testing.T) {
+	req := httptest.NewRequest("GET", "/api/v1/listings/search?q=hello&min_price=100&max_price=10", nil)
+	if _, err := parseListingSearchParams(req); err == nil {
+		t.Fatal("expected invalid price range")
+	}
+}
+
+func TestParseListingSearchParamsNegativeMinPrice(t *testing.T) {
+	req := httptest.NewRequest("GET", "/api/v1/listings/search?q=hello&min_price=-1", nil)
+	if _, err := parseListingSearchParams(req); err == nil {
+		t.Fatal("expected invalid min_price")
+	}
+}
+
+func TestParseListingSearchParamsDefaultSort(t *testing.T) {
+	req := httptest.NewRequest("GET", "/api/v1/listings/search?q=hello", nil)
+	params, err := parseListingSearchParams(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if params.Sort != "relevance" {
+		t.Fatalf("expected default sort relevance, got %q", params.Sort)
 	}
 }
 

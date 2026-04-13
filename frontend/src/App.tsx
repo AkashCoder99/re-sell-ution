@@ -3,6 +3,14 @@ import type { ChangeEvent, FormEvent } from 'react'
 import { getMe, login, logout, register, updateProfile } from './api/auth'
 import type { LoginRequest, RegisterRequest } from './api/auth'
 import type { PublicUser, UpdateProfileRequest } from './types/user'
+import type { Listing } from './types/listing'
+import type { ChatConversation, ChatMessage } from './types/chat'
+import {
+  getConversationById,
+  getOrCreateConversation,
+  markConversationRead,
+  sendConversationMessage
+} from './api/chat'
 import CitySelector from './components/CitySelector'
 import ProfileEdit from './components/ProfileEdit'
 import ForgotPassword from './components/ForgotPassword'
@@ -12,6 +20,8 @@ import CreateListing from './components/CreateListing'
 import MyListingsDashboard from './components/MyListingsDashboard'
 import SearchListings from './components/SearchListings'
 import BrowseListings from './components/BrowseListings'
+import ChatThread from './components/ChatThread'
+import ConversationInbox from './components/ConversationInbox'
 import {
   IconEmail,
   IconLocation,
@@ -51,9 +61,11 @@ type ViewMode =
   | 'profile'
   | 'profile-edit'
   | 'search'
+  | 'inbox'
   | 'create-listing'
   | 'my-listings'
   | 'browse'
+  | 'chat'
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('login')
@@ -69,11 +81,81 @@ export default function App() {
   const [showRegisterPassword, setShowRegisterPassword] = useState<boolean>(false)
   const [listingsRefresh, setListingsRefresh] = useState(0)
   const [profileSearch, setProfileSearch] = useState('')
+  const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null)
+  const [chatReturnView, setChatReturnView] = useState<ViewMode>('profile')
+  const [chatInboxRefresh, setChatInboxRefresh] = useState(0)
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user])
   const isAuthLandingView = !isAuthenticated && (viewMode === 'login' || viewMode === 'register')
   const isWideView =
     isAuthenticated &&
-    (viewMode === 'create-listing' || viewMode === 'my-listings' || viewMode === 'search' || viewMode === 'browse')
+    (viewMode === 'create-listing' ||
+      viewMode === 'my-listings' ||
+      viewMode === 'search' ||
+      viewMode === 'inbox' ||
+      viewMode === 'browse' ||
+      viewMode === 'chat')
+
+  async function handleStartChat(listing: Listing) {
+    if (!isAuthenticated || !user) {
+      setMessage('Please log in to start a chat.')
+      setViewMode('login')
+      throw new Error('Login required')
+    }
+
+    try {
+      const conversation = await getOrCreateConversation(token, {
+        buyer_id: user.id,
+        seller_id: listing.seller_id,
+        seller_name: listing.seller_id,
+        listing_id: listing.id,
+        listing_title: listing.title,
+        listing_price: Number(listing.price),
+        listing_city: listing.city
+      })
+
+      setActiveConversation(conversation)
+      setChatReturnView(viewMode)
+      setChatInboxRefresh((value) => value + 1)
+      setViewMode('chat')
+    } catch (error: unknown) {
+      throw new Error(error instanceof Error ? error.message : 'Unable to start chat.')
+    }
+  }
+
+  async function handleSendMessage(text: string) {
+    if (!activeConversation || !user) return
+
+    const newMessage: ChatMessage = await sendConversationMessage(token, activeConversation.id, {
+      sender_id: user.id,
+      text
+    })
+
+    const updatedConversation: ChatConversation = {
+      ...activeConversation,
+      updated_at: newMessage.created_at,
+      last_message_text: text,
+      messages: [...activeConversation.messages, newMessage]
+    }
+
+    setActiveConversation(updatedConversation)
+    setChatInboxRefresh((value) => value + 1)
+  }
+
+  async function handleOpenConversation(conversationId: string) {
+    if (!user) return
+
+    const conversation = await getConversationById(token, conversationId)
+    await markConversationRead(token, conversationId, user.id)
+
+    const updatedConversation = await getConversationById(token, conversationId)
+    setActiveConversation({
+      ...updatedConversation,
+      messages: updatedConversation.messages || conversation.messages
+    })
+    setChatReturnView('inbox')
+    setChatInboxRefresh((value) => value + 1)
+    setViewMode('chat')
+  }
 
   useEffect(() => {
     if (!token) {
@@ -105,6 +187,12 @@ export default function App() {
         setUser(null)
       })
   }, [token])
+
+  useEffect(() => {
+    if (viewMode === 'chat' && !activeConversation) {
+      setViewMode('profile')
+    }
+  }, [viewMode, activeConversation])
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -269,12 +357,29 @@ export default function App() {
             token={token}
             userCity={user.city || ''}
             onBack={() => setViewMode('profile')}
+            onStartChat={handleStartChat}
+          />
+        ) : isAuthenticated && viewMode === 'inbox' && user ? (
+          <ConversationInbox
+            token={token}
+            currentUserId={user.id}
+            refreshKey={chatInboxRefresh}
+            onBack={() => setViewMode('profile')}
+            onOpenConversation={handleOpenConversation}
+          />
+        ) : isAuthenticated && viewMode === 'chat' && user && activeConversation ? (
+          <ChatThread
+            conversation={activeConversation}
+            currentUserId={user.id}
+            onBack={() => setViewMode(chatReturnView)}
+            onSendMessage={handleSendMessage}
           />
         ) : isAuthenticated && viewMode === 'search' && user ? (
           <SearchListings
             token={token}
             userCity={user.city || ''}
             onBack={() => setViewMode('profile')}
+            onStartChat={handleStartChat}
           />
         ) : isAuthenticated && viewMode === 'create-listing' && user ? (
           <CreateListing
@@ -378,31 +483,57 @@ export default function App() {
                 Search
               </button>
             </form>
-            <div className="profile-actions">
-              <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('browse')}>
-                <IconSearch className="profile-action-icon" aria-hidden />
-                <span>Browse Listings</span>
-              </button>
-              <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('create-listing')}>
-                <IconAddListing className="profile-action-icon" aria-hidden />
-                <span>Create Listing</span>
-              </button>
-              <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('my-listings')}>
-                <IconListings className="profile-action-icon" aria-hidden />
-                <span>My Listings</span>
-              </button>
-              <button type="button" className="profile-action-btn" onClick={() => setViewMode('profile-edit')}>
-                <IconEdit className="profile-action-icon" aria-hidden />
-                <span>Edit Profile</span>
-              </button>
-              <button type="button" className="profile-action-btn" onClick={() => setShowCitySelector(true)}>
-                <IconCity className="profile-action-icon" aria-hidden />
-                <span>Change City</span>
-              </button>
-              <button type="button" className="profile-action-btn secondary" onClick={handleLogout}>
-                <IconLogout className="profile-action-icon" aria-hidden />
-                <span>Logout</span>
-              </button>
+            <div className="role-sections">
+              <div className="role-section">
+                <div className="role-title">Buyer</div>
+                <p className="role-subtitle">Explore nearby items or search by keyword.</p>
+                <div className="profile-actions">
+                  <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('browse')}>
+                    <IconSearch className="profile-action-icon" aria-hidden />
+                    <span>Explore Nearby</span>
+                  </button>
+                  <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('search')}>
+                    <IconSearch className="profile-action-icon" aria-hidden />
+                    <span>Search by Keyword</span>
+                  </button>
+                  <button type="button" className="profile-action-btn" onClick={() => setViewMode('inbox')}>
+                    <IconSearch className="profile-action-icon" aria-hidden />
+                    <span>Inbox</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="role-section">
+                <div className="role-title">Seller</div>
+                <div className="profile-actions">
+                  <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('create-listing')}>
+                    <IconAddListing className="profile-action-icon" aria-hidden />
+                    <span>Create Listing</span>
+                  </button>
+                  <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('my-listings')}>
+                    <IconListings className="profile-action-icon" aria-hidden />
+                    <span>My Listings</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="role-section">
+                <div className="role-title">Account</div>
+                <div className="profile-actions">
+                  <button type="button" className="profile-action-btn" onClick={() => setViewMode('profile-edit')}>
+                    <IconEdit className="profile-action-icon" aria-hidden />
+                    <span>Edit Profile</span>
+                  </button>
+                  <button type="button" className="profile-action-btn" onClick={() => setShowCitySelector(true)}>
+                    <IconCity className="profile-action-icon" aria-hidden />
+                    <span>Change City</span>
+                  </button>
+                  <button type="button" className="profile-action-btn secondary" onClick={handleLogout}>
+                    <IconLogout className="profile-action-icon" aria-hidden />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         ) : viewMode === 'forgot-password' ? (

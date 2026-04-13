@@ -7,6 +7,7 @@ interface ListingDetailsProps {
   listing: Listing
   onClose: () => void
   onBack?: () => void
+  onStartChat?: (listing: Listing) => Promise<void>
 }
 
 function formatRelativeTime(iso: string): string {
@@ -22,11 +23,13 @@ function formatRelativeTime(iso: string): string {
   return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
-export default function ListingDetails({ listing, onClose, onBack }: ListingDetailsProps) {
+export default function ListingDetails({ listing, onClose, onBack, onStartChat }: ListingDetailsProps) {
   const images = listing.images || []
   const [index, setIndex] = useState(0)
   const [favorite, setFavorite] = useState(false)
   const [touchStart, setTouchStart] = useState<number | null>(null)
+  const [chatting, setChatting] = useState(false)
+  const [chatError, setChatError] = useState('')
 
   const currentImage = useMemo(() => images[index], [images, index])
   const isUnavailable = listing.status === 'deleted'
@@ -40,6 +43,19 @@ export default function ListingDetails({ listing, onClose, onBack }: ListingDeta
   const goPrev = () => {
     if (images.length === 0) return
     setIndex((prev) => (prev - 1 + images.length) % images.length)
+  }
+
+  const handleStartChat = async () => {
+    if (!onStartChat) return
+    setChatting(true)
+    setChatError('')
+    try {
+      await onStartChat(listing)
+    } catch (error: unknown) {
+      setChatError(error instanceof Error ? error.message : 'Failed to start chat.')
+    } finally {
+      setChatting(false)
+    }
   }
 
   return (
@@ -140,8 +156,13 @@ export default function ListingDetails({ listing, onClose, onBack }: ListingDeta
         </div>
 
         <div className="listing-details-actions">
-          <button type="button" className="profile-edit-btn primary">
-            Start Chat
+          <button
+            type="button"
+            className="profile-edit-btn primary"
+            onClick={handleStartChat}
+            disabled={chatting || !onStartChat}
+          >
+            {chatting ? 'Starting chat...' : 'Chat with Seller'}
           </button>
           <button
             type="button"
@@ -154,6 +175,14 @@ export default function ListingDetails({ listing, onClose, onBack }: ListingDeta
             Report
           </button>
         </div>
+        {chatError && (
+          <div className="listing-details-chat-error">
+            <span>{chatError}</span>
+            <button type="button" className="profile-edit-btn secondary" onClick={handleStartChat}>
+              Retry
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

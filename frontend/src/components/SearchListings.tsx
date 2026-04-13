@@ -10,6 +10,7 @@ interface SearchListingsProps {
   token: string
   userCity: string
   onBack: () => void
+  onStartChat?: (listing: Listing) => Promise<void>
 }
 
 const RECENT_KEY = 'resellution_recent_searches'
@@ -58,7 +59,7 @@ function saveRecent(list: string[]) {
   }
 }
 
-export default function SearchListings({ token, userCity, onBack }: SearchListingsProps) {
+export default function SearchListings({ token, userCity, onBack, onStartChat }: SearchListingsProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Listing[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -521,7 +522,18 @@ export default function SearchListings({ token, userCity, onBack }: SearchListin
       {selected && (
         <div className="search-modal-overlay" role="dialog" aria-modal="true">
           <div className="search-modal listing-details-modal">
-            <ListingDetails listing={selected} onClose={() => setSelected(null)} />
+            <ListingDetails
+              listing={selected}
+              onClose={() => setSelected(null)}
+              onStartChat={
+                onStartChat
+                  ? async (listing) => {
+                      await onStartChat(listing)
+                      setSelected(null)
+                    }
+                  : undefined
+              }
+            />
           </div>
         </div>
       )}

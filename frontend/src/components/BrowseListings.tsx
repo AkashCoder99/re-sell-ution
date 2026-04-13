@@ -11,9 +11,10 @@ interface BrowseListingsProps {
   token: string
   userCity?: string
   onBack: () => void
+  onStartChat?: (listing: Listing) => Promise<void>
 }
 
-export default function BrowseListings({ token, userCity, onBack }: BrowseListingsProps) {
+export default function BrowseListings({ token, userCity, onBack, onStartChat }: BrowseListingsProps) {
   const [listings, setListings] = useState<Listing[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCity, setSelectedCity] = useState(userCity || '')
@@ -152,6 +153,17 @@ export default function BrowseListings({ token, userCity, onBack }: BrowseListin
                 <p className="browse-card-meta">
                   📍 {listing.city} · {getConditionLabel(listing.condition)}
                 </p>
+                {onStartChat && (
+                  <button
+                    type="button"
+                    className="profile-edit-btn primary"
+                    onClick={() => {
+                      void onStartChat(listing)
+                    }}
+                  >
+                    Chat with Seller
+                  </button>
+                )}
               </div>
             </div>
           ))}
