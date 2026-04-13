@@ -64,6 +64,14 @@ type MessagesPage struct {
 	TotalPages int       `json:"total_pages"`
 }
 
+type MessageNotificationDelivery struct {
+	Notification   Notification
+	RecipientEmail string
+	RecipientName  string
+	SenderName     string
+	ListingTitle   string
+}
+
 type ConversationStore struct {
 	DB *sql.DB
 }
@@ -244,18 +252,18 @@ func (s ConversationStore) ListMessages(ctx context.Context, conversationID, use
 	return s.listMessagesPage(ctx, summary, page, limit)
 }
 
-func (s ConversationStore) AddMessage(ctx context.Context, conversationID, userID, text string) (Message, error) {
+func (s ConversationStore) AddMessage(ctx context.Context, conversationID, userID, text string) (Message, *MessageNotificationDelivery, error) {
 	summary, err := s.loadConversationSummary(ctx, conversationID, userID)
 	if err != nil {
-		return Message{}, err
+		return Message{}, nil, err
 	}
 	if userID != summary.BuyerID && userID != summary.SellerID {
-		return Message{}, ErrConversationForbidden
+		return Message{}, nil, ErrConversationForbidden
 	}
 
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
-		return Message{}, err
+		return Message{}, nil, err
 	}
 	defer tx.Rollback()
 
@@ -267,7 +275,7 @@ func (s ConversationStore) AddMessage(ctx context.Context, conversationID, userI
 		RETURNING created_at
 	`, messageID, conversationID, userID, text).Scan(&createdAt)
 	if err != nil {
-		return Message{}, err
+		return Message{}, nil, err
 	}
 
 	if _, err := tx.ExecContext(ctx, `
@@ -275,11 +283,16 @@ func (s ConversationStore) AddMessage(ctx context.Context, conversationID, userI
 		SET updated_at = $2, last_message_at = $2
 		WHERE id = $1
 	`, conversationID, createdAt); err != nil {
-		return Message{}, err
+		return Message{}, nil, err
+	}
+
+	delivery, err := s.createMessageNotification(ctx, tx, summary, userID, text, conversationID, createdAt)
+	if err != nil {
+		return Message{}, nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
-		return Message{}, err
+		return Message{}, nil, err
 	}
 
 	return Message{
@@ -288,7 +301,7 @@ func (s ConversationStore) AddMessage(ctx context.Context, conversationID, userI
 		Text:      text,
 		CreatedAt: createdAt,
 		ReadBy:    []string{userID},
-	}, nil
+	}, delivery, nil
 }
 
 func (s ConversationStore) MarkRead(ctx context.Context, conversationID, userID string) error {
@@ -300,14 +313,34 @@ func (s ConversationStore) MarkRead(ctx context.Context, conversationID, userID 
 		return ErrConversationForbidden
 	}
 
-	_, err = s.DB.ExecContext(ctx, `
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `
 		UPDATE messages
 		SET is_read = TRUE
 		WHERE conversation_id = $1
 		  AND sender_id <> $2
 		  AND is_read = FALSE
-	`, conversationID, userID)
-	return err
+	`, conversationID, userID); err != nil {
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE notifications
+		SET is_read = TRUE
+		WHERE user_id = $1
+		  AND type = 'message'
+		  AND reference_id = $2
+		  AND is_read = FALSE
+	`, userID, conversationID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (s ConversationStore) loadConversationSummary(ctx context.Context, conversationID, userID string) (conversationSummary, error) {
@@ -504,4 +537,76 @@ func buildMessageReadBy(senderID, buyerID, sellerID string, isRead bool) []strin
 	}
 
 	return readBy
+}
+
+func (s ConversationStore) createMessageNotification(ctx context.Context, tx *sql.Tx, summary conversationSummary, senderID, messageText, conversationID string, createdAt time.Time) (*MessageNotificationDelivery, error) {
+	recipientID, senderName, recipientName := messageNotificationParticipants(summary, senderID)
+	if recipientID == "" || senderName == "" {
+		return nil, nil
+	}
+
+	var recipientEmail string
+	if err := tx.QueryRowContext(ctx, `
+		SELECT email
+		FROM users
+		WHERE id = $1
+		  AND deleted_at IS NULL
+	`, recipientID).Scan(&recipientEmail); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			recipientEmail = ""
+		} else {
+			return nil, err
+		}
+	}
+
+	notification := Notification{
+		ID:        uuid.NewString(),
+		UserID:    recipientID,
+		Type:      "message",
+		Title:     fmt.Sprintf("New message from %s", senderName),
+		Body:      buildMessageNotificationBody(senderName, summary.ListingTitle, messageText),
+		IsRead:    false,
+		CreatedAt: createdAt,
+	}
+	refID := conversationID
+	notification.ReferenceID = &refID
+
+	if err := tx.QueryRowContext(ctx, `
+		INSERT INTO notifications (id, user_id, type, title, body, reference_id, is_read, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, FALSE, $7)
+		RETURNING created_at
+	`, notification.ID, notification.UserID, notification.Type, notification.Title, notification.Body, refID, createdAt).Scan(&notification.CreatedAt); err != nil {
+		return nil, err
+	}
+
+	return &MessageNotificationDelivery{
+		Notification:   notification,
+		RecipientEmail: recipientEmail,
+		RecipientName:  recipientName,
+		SenderName:     senderName,
+		ListingTitle:   summary.ListingTitle,
+	}, nil
+}
+
+func messageNotificationParticipants(summary conversationSummary, senderID string) (recipientID, senderName, recipientName string) {
+	switch senderID {
+	case summary.BuyerID:
+		return summary.SellerID, summary.buyerName, summary.SellerName
+	case summary.SellerID:
+		return summary.BuyerID, summary.SellerName, summary.buyerName
+	default:
+		return "", "", ""
+	}
+}
+
+func buildMessageNotificationBody(senderName, listingTitle, messageText string) string {
+	body := fmt.Sprintf("%s sent you a new message about %s.", senderName, listingTitle)
+	snippet := strings.TrimSpace(messageText)
+	if snippet == "" {
+		return body
+	}
+	if len(snippet) > 180 {
+		snippet = snippet[:177] + "..."
+	}
+	return fmt.Sprintf("%s %s", body, snippet)
 }

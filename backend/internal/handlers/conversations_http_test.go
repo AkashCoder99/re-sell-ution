@@ -17,7 +17,7 @@ type stubConversationStore struct {
 	listByUserFn   func(ctx context.Context, userID, query string, page, limit int) (models.ConversationsPage, error)
 	getByIDFn      func(ctx context.Context, conversationID, userID string, page, limit int) (models.Conversation, error)
 	listMessagesFn func(ctx context.Context, conversationID, userID string, page, limit int) (models.MessagesPage, error)
-	addMessageFn   func(ctx context.Context, conversationID, userID, text string) (models.Message, error)
+	addMessageFn   func(ctx context.Context, conversationID, userID, text string) (models.Message, *models.MessageNotificationDelivery, error)
 	markReadFn     func(ctx context.Context, conversationID, userID string) error
 }
 
@@ -49,9 +49,9 @@ func (s stubConversationStore) ListMessages(ctx context.Context, conversationID,
 	return s.listMessagesFn(ctx, conversationID, userID, page, limit)
 }
 
-func (s stubConversationStore) AddMessage(ctx context.Context, conversationID, userID, text string) (models.Message, error) {
+func (s stubConversationStore) AddMessage(ctx context.Context, conversationID, userID, text string) (models.Message, *models.MessageNotificationDelivery, error) {
 	if s.addMessageFn == nil {
-		return models.Message{}, nil
+		return models.Message{}, nil, nil
 	}
 	return s.addMessageFn(ctx, conversationID, userID, text)
 }
@@ -240,8 +240,8 @@ func TestConversationHandlerSendMessageNotFound(t *testing.T) {
 	tm := utils.NewTokenManager(secret)
 	h := ConversationHandler{
 		Conversations: stubConversationStore{
-			addMessageFn: func(ctx context.Context, conversationID, userID, text string) (models.Message, error) {
-				return models.Message{}, models.ErrConversationNotFound
+			addMessageFn: func(ctx context.Context, conversationID, userID, text string) (models.Message, *models.MessageNotificationDelivery, error) {
+				return models.Message{}, nil, models.ErrConversationNotFound
 			},
 		},
 	}

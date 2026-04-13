@@ -14,6 +14,7 @@ import (
 	"resellution/backend/internal/middleware"
 	"resellution/backend/internal/models"
 	"resellution/backend/internal/observability"
+	"resellution/backend/internal/utils"
 )
 
 const (
@@ -27,12 +28,13 @@ type conversationStore interface {
 	ListByUser(ctx context.Context, userID, query string, page, limit int) (models.ConversationsPage, error)
 	GetByID(ctx context.Context, conversationID, userID string, page, limit int) (models.Conversation, error)
 	ListMessages(ctx context.Context, conversationID, userID string, page, limit int) (models.MessagesPage, error)
-	AddMessage(ctx context.Context, conversationID, userID, text string) (models.Message, error)
+	AddMessage(ctx context.Context, conversationID, userID, text string) (models.Message, *models.MessageNotificationDelivery, error)
 	MarkRead(ctx context.Context, conversationID, userID string) error
 }
 
 type ConversationHandler struct {
 	Conversations conversationStore
+	EmailSender   utils.EmailSender
 }
 
 type createConversationRequest struct {
@@ -262,7 +264,7 @@ func (h ConversationHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	message, err := h.Conversations.AddMessage(r.Context(), conversationID, userID, text)
+	message, delivery, err := h.Conversations.AddMessage(r.Context(), conversationID, userID, text)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrConversationNotFound):
@@ -282,6 +284,7 @@ func (h ConversationHandler) SendMessage(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	h.sendNewMessageEmail(r, delivery)
 	writeJSON(w, http.StatusCreated, map[string]any{"message": message})
 }
 
@@ -348,4 +351,23 @@ func parsePaginationParams(r *http.Request, defaultPage, defaultLimit int) (int,
 	}
 
 	return page, limit, nil
+}
+
+func (h ConversationHandler) sendNewMessageEmail(r *http.Request, delivery *models.MessageNotificationDelivery) {
+	if h.EmailSender == nil || delivery == nil || strings.TrimSpace(delivery.RecipientEmail) == "" {
+		return
+	}
+
+	subject := delivery.Notification.Title
+	body := delivery.Notification.Body
+	if strings.TrimSpace(body) == "" {
+		body = "You have a new message on ReSellution."
+	}
+	if err := h.EmailSender.Send(delivery.RecipientEmail, subject, body); err != nil {
+		observability.Warn(r.Context(), "notifications.email.new_message.failed", map[string]any{
+			"notification_id": delivery.Notification.ID,
+			"user_id":         delivery.Notification.UserID,
+			"error":           err.Error(),
+		})
+	}
 }
