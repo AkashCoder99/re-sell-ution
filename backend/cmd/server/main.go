@@ -32,6 +32,7 @@ func main() {
 	userStore := models.UserStore{DB: database}
 	listingStore := models.ListingStore{DB: database}
 	categoryStore := models.CategoryStore{DB: database}
+	favoriteStore := models.FavoriteStore{DB: database}
 	tokenManager := utils.NewTokenManager(cfg.TokenSecret)
 	var emailSender utils.EmailSender
 	if strings.TrimSpace(cfg.SMTPHost) != "" {
@@ -49,6 +50,7 @@ func main() {
 
 	listingHandler := handlers.ListingHandler{Listings: listingStore}
 	categoryHandler := handlers.CategoryHandler{Categories: categoryStore}
+	favoriteHandler := handlers.FavoriteHandler{Favorites: favoriteStore}
 
 	authHandler := handlers.AuthHandler{
 		Users:                        userStore,
@@ -100,6 +102,9 @@ func main() {
 	mux.HandleFunc("PATCH /api/v1/listings/{id}/status", middleware.Auth(tokenManager, listingHandler.PatchStatus))
 	mux.HandleFunc("DELETE /api/v1/listings/{id}", middleware.Auth(tokenManager, listingHandler.Delete))
 	mux.HandleFunc("POST /api/v1/listings/{id}/images", middleware.Auth(tokenManager, listingHandler.UploadImage))
+	mux.HandleFunc("GET /api/v1/favorites", middleware.Auth(tokenManager, favoriteHandler.List))
+	mux.HandleFunc("PUT /api/v1/favorites/{listing_id}", middleware.Auth(tokenManager, favoriteHandler.Add))
+	mux.HandleFunc("DELETE /api/v1/favorites/{listing_id}", middleware.Auth(tokenManager, favoriteHandler.Remove))
 
 	handler := observability.RequestMetrics(metrics, logger, withCORS(cfg.CorsOrigin, mux))
 
