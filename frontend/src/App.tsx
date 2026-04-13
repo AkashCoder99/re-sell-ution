@@ -378,31 +378,53 @@ export default function App() {
                 Search
               </button>
             </form>
-            <div className="profile-actions">
-              <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('browse')}>
-                <IconSearch className="profile-action-icon" aria-hidden />
-                <span>Browse Listings</span>
-              </button>
-              <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('create-listing')}>
-                <IconAddListing className="profile-action-icon" aria-hidden />
-                <span>Create Listing</span>
-              </button>
-              <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('my-listings')}>
-                <IconListings className="profile-action-icon" aria-hidden />
-                <span>My Listings</span>
-              </button>
-              <button type="button" className="profile-action-btn" onClick={() => setViewMode('profile-edit')}>
-                <IconEdit className="profile-action-icon" aria-hidden />
-                <span>Edit Profile</span>
-              </button>
-              <button type="button" className="profile-action-btn" onClick={() => setShowCitySelector(true)}>
-                <IconCity className="profile-action-icon" aria-hidden />
-                <span>Change City</span>
-              </button>
-              <button type="button" className="profile-action-btn secondary" onClick={handleLogout}>
-                <IconLogout className="profile-action-icon" aria-hidden />
-                <span>Logout</span>
-              </button>
+            <div className="role-sections">
+              <div className="role-section">
+                <div className="role-title">Buyer</div>
+                <p className="role-subtitle">Explore nearby items or search by keyword.</p>
+                <div className="profile-actions">
+                  <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('browse')}>
+                    <IconSearch className="profile-action-icon" aria-hidden />
+                    <span>Explore Nearby</span>
+                  </button>
+                  <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('search')}>
+                    <IconSearch className="profile-action-icon" aria-hidden />
+                    <span>Search by Keyword</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="role-section">
+                <div className="role-title">Seller</div>
+                <div className="profile-actions">
+                  <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('create-listing')}>
+                    <IconAddListing className="profile-action-icon" aria-hidden />
+                    <span>Create Listing</span>
+                  </button>
+                  <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('my-listings')}>
+                    <IconListings className="profile-action-icon" aria-hidden />
+                    <span>My Listings</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="role-section">
+                <div className="role-title">Account</div>
+                <div className="profile-actions">
+                  <button type="button" className="profile-action-btn" onClick={() => setViewMode('profile-edit')}>
+                    <IconEdit className="profile-action-icon" aria-hidden />
+                    <span>Edit Profile</span>
+                  </button>
+                  <button type="button" className="profile-action-btn" onClick={() => setShowCitySelector(true)}>
+                    <IconCity className="profile-action-icon" aria-hidden />
+                    <span>Change City</span>
+                  </button>
+                  <button type="button" className="profile-action-btn secondary" onClick={handleLogout}>
+                    <IconLogout className="profile-action-icon" aria-hidden />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         ) : viewMode === 'forgot-password' ? (

@@ -807,6 +807,33 @@ textarea:focus {
   gap: 0.75rem;
 }
 
+.role-sections {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.role-section {
+  border: 1px solid var(--gray-200);
+  border-radius: 16px;
+  padding: 1rem;
+  background: var(--gray-50);
+}
+
+.role-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.75rem;
+}
+
+.role-subtitle {
+  margin: -0.35rem 0 0.75rem;
+  color: var(--gray-600);
+  font-size: 0.9rem;
+}
+
 .profile-action-btn {
   display: inline-flex;
   align-items: center;
