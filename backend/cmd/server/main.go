@@ -33,6 +33,7 @@ func main() {
 	listingStore := models.ListingStore{DB: database}
 	categoryStore := models.CategoryStore{DB: database}
 	favoriteStore := models.FavoriteStore{DB: database}
+	conversationStore := models.ConversationStore{DB: database}
 	tokenManager := utils.NewTokenManager(cfg.TokenSecret)
 	var emailSender utils.EmailSender
 	if strings.TrimSpace(cfg.SMTPHost) != "" {
@@ -51,6 +52,7 @@ func main() {
 	listingHandler := handlers.ListingHandler{Listings: listingStore}
 	categoryHandler := handlers.CategoryHandler{Categories: categoryStore}
 	favoriteHandler := handlers.FavoriteHandler{Favorites: favoriteStore}
+	conversationHandler := handlers.ConversationHandler{Conversations: conversationStore}
 
 	authHandler := handlers.AuthHandler{
 		Users:                        userStore,
@@ -144,6 +146,12 @@ func main() {
 	mux.HandleFunc("GET /api/v1/favorites", middleware.Auth(tokenManager, favoriteHandler.List))
 	mux.HandleFunc("PUT /api/v1/favorites/{listing_id}", middleware.Auth(tokenManager, favoriteHandler.Add))
 	mux.HandleFunc("DELETE /api/v1/favorites/{listing_id}", middleware.Auth(tokenManager, favoriteHandler.Remove))
+	mux.HandleFunc("GET /api/v1/chat/conversations", middleware.Auth(tokenManager, conversationHandler.List))
+	mux.HandleFunc("POST /api/v1/chat/conversations", middleware.Auth(tokenManager, conversationHandler.Create))
+	mux.HandleFunc("GET /api/v1/chat/conversations/{id}", middleware.Auth(tokenManager, conversationHandler.Get))
+	mux.HandleFunc("GET /api/v1/chat/conversations/{id}/messages", middleware.Auth(tokenManager, conversationHandler.ListMessages))
+	mux.HandleFunc("POST /api/v1/chat/conversations/{id}/messages", middleware.Auth(tokenManager, conversationHandler.SendMessage))
+	mux.HandleFunc("PATCH /api/v1/chat/conversations/{id}/read", middleware.Auth(tokenManager, conversationHandler.MarkRead))
 
 	handler := observability.RequestMetrics(metrics, logger, withCORS(cfg.CorsOrigin, mux))
 
