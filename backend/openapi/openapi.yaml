@@ -116,7 +116,9 @@ components:
         currency: { type: string }
         city: { type: string }
         state: { type: string, nullable: true }
-        status: { type: string }
+        status:
+          type: string
+          enum: [active, reserved, sold, draft, deleted]
         view_count: { type: integer }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -148,6 +150,10 @@ components:
         city: { type: string }
         state: { type: string }
         category_id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [active, draft]
+          default: active
       required: [title, description, condition, price, city]
 
     CreateListingResponse:
@@ -218,7 +224,7 @@ components:
       properties:
         status:
           type: string
-          enum: [active, sold, draft]
+          enum: [active, reserved, sold, draft]
         sold_to_user_id:
           type: string
           format: uuid
@@ -540,7 +546,7 @@ paths:
           required: false
           schema:
             type: string
-            enum: [active, sold, draft]
+            enum: [active, reserved, sold, draft, all]
       responses:
         '200':
           description: My listings

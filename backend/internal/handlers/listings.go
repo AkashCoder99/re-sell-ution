@@ -43,7 +43,11 @@ var allowedConditions = map[string]struct{}{
 }
 
 var allowedStatuses = map[string]struct{}{
-	"active": {}, "reserved": {}, "sold": {},
+	"active": {}, "reserved": {}, "sold": {}, "draft": {},
+}
+
+var allowedCreateStatuses = map[string]struct{}{
+	"active": {}, "draft": {},
 }
 var allowedImageMIMEs = map[string]string{
 	"image/jpeg": ".jpg",
@@ -64,6 +68,7 @@ type createListingRequest struct {
 	Longitude   *float64 `json:"longitude"`
 	CategoryID  *string  `json:"category_id"`
 	ImageURLs   []string `json:"image_urls"`
+	Status      string   `json:"status"`
 }
 
 func (h ListingHandler) Browse(w http.ResponseWriter, r *http.Request) {
@@ -145,6 +150,7 @@ func (h ListingHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Latitude:    req.Latitude,
 		Longitude:   req.Longitude,
 		ImageURLs:   req.ImageURLs,
+		Status:      strings.TrimSpace(req.Status),
 	}
 	if req.CategoryID != nil && strings.TrimSpace(*req.CategoryID) != "" {
 		cid := strings.TrimSpace(*req.CategoryID)
@@ -199,7 +205,11 @@ func (h ListingHandler) ListMine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status := strings.TrimSpace(r.URL.Query().Get("status"))
+	status, err := normalizeListMineStatusFilter(r.URL.Query().Get("status"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
 	page := 1
 	limit := 10
 	if p := r.URL.Query().Get("page"); p != "" {
@@ -385,8 +395,8 @@ func (h ListingHandler) PatchStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status := strings.TrimSpace(req.Status)
-	if _, ok := allowedStatuses[status]; !ok {
+	status, err := normalizePatchListingStatus(req.Status)
+	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid status"})
 		return
 	}
@@ -636,6 +646,13 @@ func validateListingCreate(in *models.ListingCreate) error {
 	if _, ok := allowedConditions[in.Condition]; !ok {
 		return errors.New("invalid condition")
 	}
+	in.Status = strings.TrimSpace(in.Status)
+	if in.Status == "" {
+		in.Status = "active"
+	}
+	if _, ok := allowedCreateStatuses[in.Status]; !ok {
+		return errors.New("invalid status")
+	}
 	if in.Price < 0 || in.Price > maxListingPrice {
 		return errors.New("invalid price")
 	}
@@ -663,6 +680,25 @@ func validateListingCreate(in *models.ListingCreate) error {
 		return err
 	}
 	return nil
+}
+
+func normalizePatchListingStatus(raw string) (string, error) {
+	status := strings.TrimSpace(raw)
+	if _, ok := allowedStatuses[status]; !ok {
+		return "", errors.New("invalid status")
+	}
+	return status, nil
+}
+
+func normalizeListMineStatusFilter(raw string) (string, error) {
+	status := strings.TrimSpace(raw)
+	if status == "" || status == "all" {
+		return status, nil
+	}
+	if _, ok := allowedStatuses[status]; !ok {
+		return "", errors.New("invalid status")
+	}
+	return status, nil
 }
 
 func validateListingPatch(p *models.ListingPatch) error {
