@@ -153,3 +153,23 @@ func TestValidateImageURL(t *testing.T) {
 		t.Fatal("relative")
 	}
 }
+
+func TestFindProhibitedWord(t *testing.T) {
+	blocked, ok := findProhibitedWord([]string{"scam", "fake"}, "great deal", "this is a FAKE phone")
+	if !ok || blocked != "fake" {
+		t.Fatalf("expected fake to be blocked, got blocked=%q ok=%v", blocked, ok)
+	}
+
+	if blocked, ok := findProhibitedWord([]string{"scam"}, "clean title", "safe description"); ok || blocked != "" {
+		t.Fatalf("expected no blocked term, got blocked=%q ok=%v", blocked, ok)
+	}
+}
+
+func TestFindProhibitedWordFromPatch(t *testing.T) {
+	description := "contains stolen goods"
+	patch := models.ListingPatch{Description: &description}
+	blocked, ok := findProhibitedWordFromPatch([]string{"stolen"}, patch)
+	if !ok || blocked != "stolen" {
+		t.Fatalf("expected stolen to be blocked, got blocked=%q ok=%v", blocked, ok)
+	}
+}

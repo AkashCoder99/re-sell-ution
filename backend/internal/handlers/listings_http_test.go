@@ -36,6 +36,29 @@ func TestListingHandlerCreateInvalidJSONWithAuth(t *testing.T) {
 	}
 }
 
+func TestListingHandlerCreateRejectsProhibitedWord(t *testing.T) {
+	const secret = "listing-http-test-secret-prohibited"
+	userID := "33333333-3333-3333-3333-333333333333"
+	tm := utils.NewTokenManager(secret)
+	h := ListingHandler{ProhibitedWords: []string{"scam"}}
+	wrapped := middleware.Auth(tm, h.Create)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/listings", strings.NewReader(`{
+		"title":"Great deal",
+		"description":"This is a scam listing",
+		"condition":"good",
+		"price":10,
+		"currency":"INR",
+		"city":"NYC"
+	}`))
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t, secret, userID))
+	wrapped(rec, req)
+	if rec.Code != 400 {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
 func TestListingHandlerUpdateInvalidListingID(t *testing.T) {
 	const secret = "listing-http-test-secret-2"
 	userID := "44444444-4444-4444-4444-444444444444"
