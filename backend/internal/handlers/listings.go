@@ -21,7 +21,8 @@ import (
 )
 
 type ListingHandler struct {
-	Listings models.ListingStore
+	Listings         models.ListingStore
+	ProhibitedWords []string
 }
 
 const (
@@ -152,6 +153,10 @@ func (h ListingHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if err := validateListingCreate(&in); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if blocked, ok := findProhibitedWord(h.ProhibitedWords, in.Title, in.Description); ok {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("listing contains prohibited term: %s", blocked)})
 		return
 	}
 
@@ -320,6 +325,10 @@ func (h ListingHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	if err := validateListingPatch(&patch); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if blocked, ok := findProhibitedWordFromPatch(h.ProhibitedWords, patch); ok {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("listing contains prohibited term: %s", blocked)})
 		return
 	}
 
@@ -763,4 +772,40 @@ func validateImageURL(s string) error {
 		return errors.New("image URL must use http or https")
 	}
 	return nil
+}
+
+func findProhibitedWord(words []string, fields ...string) (string, bool) {
+	if len(words) == 0 {
+		return "", false
+	}
+	normalizedFields := make([]string, 0, len(fields))
+	for _, field := range fields {
+		normalized := strings.ToLower(strings.TrimSpace(field))
+		if normalized != "" {
+			normalizedFields = append(normalizedFields, normalized)
+		}
+	}
+	for _, rawWord := range words {
+		word := strings.ToLower(strings.TrimSpace(rawWord))
+		if word == "" {
+			continue
+		}
+		for _, field := range normalizedFields {
+			if strings.Contains(field, word) {
+				return word, true
+			}
+		}
+	}
+	return "", false
+}
+
+func findProhibitedWordFromPatch(words []string, patch models.ListingPatch) (string, bool) {
+	var fields []string
+	if patch.Title != nil {
+		fields = append(fields, *patch.Title)
+	}
+	if patch.Description != nil {
+		fields = append(fields, *patch.Description)
+	}
+	return findProhibitedWord(words, fields...)
 }

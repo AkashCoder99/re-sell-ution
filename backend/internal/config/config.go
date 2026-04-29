@@ -15,6 +15,9 @@ type Config struct {
 	DatabaseURL                         string
 	TokenSecret                         string
 	TokenExpiryHours                    int
+	ListingWriteRateLimitPerIP          int
+	ListingWriteRateLimitWindowMinutes  int
+	ListingProhibitedWords              []string
 	PasswordResetExpiryMinutes          int
 	PasswordResetCooldownMinutes        int
 	PasswordResetOTPDigits              int
@@ -43,6 +46,24 @@ func Load() (Config, error) {
 		}
 		expiryHours = parsed
 	}
+	listingWriteRateLimitPerIP := 30
+	if raw := os.Getenv("LISTING_WRITE_RATE_LIMIT_PER_IP"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return Config{}, err
+		}
+		listingWriteRateLimitPerIP = parsed
+	}
+	listingWriteRateLimitWindowMinutes := 60
+	if raw := os.Getenv("LISTING_WRITE_RATE_LIMIT_WINDOW_MINUTES"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return Config{}, err
+		}
+		listingWriteRateLimitWindowMinutes = parsed
+	}
+	listingProhibitedWords := parseCSVList(os.Getenv("LISTING_PROHIBITED_WORDS"))
+
 	passwordResetExpiryMinutes := 15
 	if raw := os.Getenv("PASSWORD_RESET_EXPIRY_MINUTES"); raw != "" {
 		parsed, err := strconv.Atoi(raw)
@@ -105,6 +126,9 @@ func Load() (Config, error) {
 		DatabaseURL:                         os.Getenv("DATABASE_URL"),
 		TokenSecret:                         os.Getenv("TOKEN_SECRET"),
 		TokenExpiryHours:                    expiryHours,
+		ListingWriteRateLimitPerIP:          listingWriteRateLimitPerIP,
+		ListingWriteRateLimitWindowMinutes:  listingWriteRateLimitWindowMinutes,
+		ListingProhibitedWords:              listingProhibitedWords,
 		PasswordResetExpiryMinutes:          passwordResetExpiryMinutes,
 		PasswordResetCooldownMinutes:        passwordResetCooldownMinutes,
 		PasswordResetOTPDigits:              passwordResetOTPDigits,
@@ -140,6 +164,22 @@ func envOrDefault(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func parseCSVList(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		term := strings.ToLower(strings.TrimSpace(part))
+		if term == "" {
+			continue
+		}
+		out = append(out, term)
+	}
+	return out
 }
 
 func loadDotEnv(path string) {

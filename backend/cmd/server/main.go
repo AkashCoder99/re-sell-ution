@@ -51,7 +51,10 @@ func main() {
 		}
 	}
 
-	listingHandler := handlers.ListingHandler{Listings: listingStore}
+	listingHandler := handlers.ListingHandler{
+		Listings:         listingStore,
+		ProhibitedWords: cfg.ListingProhibitedWords,
+	}
 	categoryHandler := handlers.CategoryHandler{Categories: categoryStore}
 	favoriteHandler := handlers.FavoriteHandler{Favorites: favoriteStore}
 	conversationHandler := handlers.ConversationHandler{Conversations: conversationStore, EmailSender: emailSender}
@@ -141,9 +144,24 @@ func main() {
 	mux.HandleFunc("GET /api/v1/categories/tree", categoryHandler.Tree)
 	mux.HandleFunc("GET /api/v1/listings/browse", listingHandler.Browse)
 	mux.HandleFunc("GET /api/v1/listings/search", listingHandler.Search)
-	mux.HandleFunc("POST /api/v1/listings", middleware.Auth(tokenManager, listingHandler.Create))
+	listingWriteRateLimiter := ratelimit.NewIPRateLimiter(cfg.ListingWriteRateLimitPerIP, cfg.ListingWriteRateLimitWindowMinutes)
+	mux.HandleFunc(
+		"POST /api/v1/listings",
+		ratelimit.IPRateLimitWithMessage(
+			listingWriteRateLimiter,
+			"Too many listing write requests. Try again in %d minutes",
+			middleware.Auth(tokenManager, listingHandler.Create),
+		),
+	)
 	mux.HandleFunc("GET /api/v1/listings/me", middleware.Auth(tokenManager, listingHandler.ListMine))
-	mux.HandleFunc("PATCH /api/v1/listings/{id}", middleware.Auth(tokenManager, listingHandler.Update))
+	mux.HandleFunc(
+		"PATCH /api/v1/listings/{id}",
+		ratelimit.IPRateLimitWithMessage(
+			listingWriteRateLimiter,
+			"Too many listing write requests. Try again in %d minutes",
+			middleware.Auth(tokenManager, listingHandler.Update),
+		),
+	)
 	mux.HandleFunc("PATCH /api/v1/listings/{id}/status", middleware.Auth(tokenManager, listingHandler.PatchStatus))
 	mux.HandleFunc("DELETE /api/v1/listings/{id}", middleware.Auth(tokenManager, listingHandler.Delete))
 	mux.HandleFunc("POST /api/v1/listings/{id}/images", middleware.Auth(tokenManager, listingHandler.UploadImage))

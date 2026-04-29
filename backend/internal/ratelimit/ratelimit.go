@@ -82,6 +82,13 @@ func extractIP(r *http.Request) string {
 }
 
 func IPRateLimit(limiter *IPRateLimiter, next http.HandlerFunc) http.HandlerFunc {
+	return IPRateLimitWithMessage(limiter, "Too many password reset requests. Try again in %d minutes", next)
+}
+
+func IPRateLimitWithMessage(limiter *IPRateLimiter, messageFmt string, next http.HandlerFunc) http.HandlerFunc {
+	if strings.TrimSpace(messageFmt) == "" {
+		messageFmt = "Too many requests. Try again in %d minutes"
+	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := extractIP(r)
 		if !limiter.Allow(ip) {
@@ -91,7 +98,7 @@ func IPRateLimit(limiter *IPRateLimiter, next http.HandlerFunc) http.HandlerFunc
 			if mins < 1 {
 				mins = 1
 			}
-			_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"Too many password reset requests. Try again in %d minutes"}`, mins)))
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"`+messageFmt+`"}`, mins)))
 			return
 		}
 		next.ServeHTTP(w, r)
