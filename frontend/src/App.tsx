@@ -22,6 +22,7 @@ import SearchListings from './components/SearchListings'
 import BrowseListings from './components/BrowseListings'
 import ChatThread from './components/ChatThread'
 import ConversationInbox from './components/ConversationInbox'
+import FavoritesPage from './components/FavoritesPage'
 import {
   IconEmail,
   IconLocation,
@@ -66,6 +67,7 @@ type ViewMode =
   | 'my-listings'
   | 'browse'
   | 'chat'
+  | 'favorites'
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('login')
@@ -93,7 +95,8 @@ export default function App() {
       viewMode === 'search' ||
       viewMode === 'inbox' ||
       viewMode === 'browse' ||
-      viewMode === 'chat')
+      viewMode === 'chat' ||
+      viewMode === 'favorites')
 
   async function handleStartChat(listing: Listing) {
     if (!isAuthenticated || !user) {
@@ -367,6 +370,8 @@ export default function App() {
             onBack={() => setViewMode('profile')}
             onOpenConversation={handleOpenConversation}
           />
+        ) : isAuthenticated && viewMode === 'favorites' && user ? (
+          <FavoritesPage token={token} onBack={() => setViewMode('profile')} />
         ) : isAuthenticated && viewMode === 'chat' && user && activeConversation ? (
           <ChatThread
             conversation={activeConversation}
@@ -499,6 +504,10 @@ export default function App() {
                   <button type="button" className="profile-action-btn" onClick={() => setViewMode('inbox')}>
                     <IconSearch className="profile-action-icon" aria-hidden />
                     <span>Inbox</span>
+                  </button>
+                  <button type="button" className="profile-action-btn" onClick={() => setViewMode('favorites')}>
+                    <IconListings className="profile-action-icon" aria-hidden />
+                    <span>Saved</span>
                   </button>
                 </div>
               </div>

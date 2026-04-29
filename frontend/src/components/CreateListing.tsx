@@ -2,7 +2,7 @@
  * F12 - Create listing: multi-step flow (basic info -> details -> photos -> review)
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import type { CreateListingDraft, ListingCondition } from '../types/listing'
 import { LISTING_CONDITIONS } from '../types/listing'
@@ -72,6 +72,30 @@ export default function CreateListing({
 
   const stepIndex = STEPS.indexOf(step)
   const progressPercent = ((stepIndex + 1) / STEPS.length) * 100
+  const hasUnsavedChanges = useMemo(() => {
+    const hasDraftFields =
+      draft.title.trim().length > 0 ||
+      draft.description.trim().length > 0 ||
+      Number(draft.price) > 0 ||
+      draft.state.trim().length > 0 ||
+      Boolean(draft.category_id) ||
+      draft.condition !== defaultDraft.condition ||
+      draft.city.trim() !== userCity.trim()
+    return hasDraftFields || photos.length > 0 || createdListingId !== null || step !== 'basic'
+  }, [draft, photos, createdListingId, step, userCity])
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [hasUnsavedChanges])
 
   const validateBasic = (): boolean => {
     const errs: Record<string, string> = {}
@@ -218,6 +242,23 @@ export default function CreateListing({
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleCancel = async () => {
+    if (hasUnsavedChanges) {
+      const confirmed = window.confirm('You have unsaved listing changes. Leave this page?')
+      if (!confirmed) return
+    }
+
+    // Avoid leaving an empty active listing behind if the user cancels early.
+    if (createdListingId) {
+      try {
+        await deleteListing(token, createdListingId)
+      } catch {
+        // Best-effort cleanup.
+      }
+    }
+    onCancel()
   }
 
   return (
@@ -443,16 +484,8 @@ export default function CreateListing({
             <button
               type="button"
               className="profile-edit-btn secondary"
-              onClick={async () => {
-                // Avoid leaving an empty active listing behind if the user cancels early.
-                if (createdListingId) {
-                  try {
-                    await deleteListing(token, createdListingId)
-                  } catch {
-                    // Best-effort cleanup.
-                  }
-                }
-                onCancel()
+              onClick={() => {
+                void handleCancel()
               }}
               disabled={stepLoading}
             >

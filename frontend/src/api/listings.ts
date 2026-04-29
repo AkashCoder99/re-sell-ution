@@ -630,6 +630,11 @@ export interface FavoriteStatusResponse {
   favorited: boolean
 }
 
+export interface FavoriteListingsResponse {
+  listings: Listing[]
+  total: number
+}
+
 export function getFavoriteStatus(
   token: string,
   listingId: string
@@ -657,6 +662,25 @@ export function removeFavorite(
     method: 'DELETE',
     token
   })
+}
+
+export async function getFavoriteListings(token: string): Promise<FavoriteListingsResponse> {
+  if (USE_MOCK) {
+    const listings = mockListings
+      .filter((listing) => mockFavoriteIds.has(listing.id))
+      .map((listing) => ({
+        ...listing,
+        images: mockListingImages.filter((img) => img.listing_id === listing.id)
+      }))
+    return { listings, total: listings.length }
+  }
+
+  const res = await request<Partial<FavoriteListingsResponse>>('/api/v1/favorites', { token })
+  const listings = Array.isArray(res?.listings) ? res.listings : []
+  return {
+    listings,
+    total: typeof res?.total === 'number' && res.total >= 0 ? res.total : listings.length
+  }
 }
 
 export function reportListing(
