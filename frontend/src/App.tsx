@@ -205,6 +205,19 @@ export default function App() {
     void refreshSavedCount()
   }, [viewMode, token, isAuthenticated])
 
+  async function refreshSavedCount() {
+    if (!isAuthenticated || !token) {
+      setSavedCount(0)
+      return
+    }
+    try {
+      const res = await getFavoriteListings(token)
+      setSavedCount(res.total)
+    } catch {
+      setSavedCount(0)
+    }
+  }
+
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setLoading(true)
@@ -769,15 +782,3 @@ export default function App() {
     </main>
   )
 }
-  async function refreshSavedCount() {
-    if (!isAuthenticated || !token) {
-      setSavedCount(0)
-      return
-    }
-    try {
-      const res = await getFavoriteListings(token)
-      setSavedCount(res.total)
-    } catch {
-      setSavedCount(0)
-    }
-  }

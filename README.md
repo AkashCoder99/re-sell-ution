@@ -6,9 +6,9 @@ A modern local marketplace platform where users can buy and sell pre-owned items
 ReSellution is a full-stack marketplace application similar to OLX, built with modern web technologies. The platform enables users to:
 - Create accounts and manage profiles
 - Select their city for localized listings
-- List, discover, and purchase pre-owned items
-- Chat with buyers/sellers
-- Save favorite listings
+- List, browse, search, and manage pre-owned items
+- Start chat from listing details and continue in inbox/thread UI
+- Save and manage favorite listings
 
 ## Tech Stack
 - **Frontend**: React 18 + TypeScript + Vite
@@ -121,6 +121,55 @@ echo "VITE_USE_MOCK=true" > .env.local
 npm run dev
 ```
 This enables a mock API for testing frontend features independently.
+
+## How to Use the Application
+
+1. Register or log in (or use **Preview app without login** for mock-mode demo).
+2. Set your city when prompted.
+3. Use **Explore Nearby** or **Search by Keyword** to discover listings.
+4. Open listing details to:
+  - chat with seller
+  - favorite/unfavorite
+  - review item details/photos
+5. Use **Inbox** to view conversations and continue chat threads.
+6. Use **Create Listing** and **My Listings** to manage seller workflows.
+
+## Test Commands
+
+Frontend unit tests:
+
+```bash
+cd frontend
+npm run test
+```
+
+Frontend type check:
+
+```bash
+cd frontend
+npm run typecheck
+```
+
+Frontend Cypress E2E (headless):
+
+```bash
+cd frontend
+npm run cypress:run
+```
+
+Frontend Cypress UI (interactive):
+
+```bash
+cd frontend
+npm run cypress:open
+```
+
+Backend unit tests:
+
+```bash
+cd backend
+go test ./...
+```
 
 ## Notes
 - ESLint is configured in `frontend/eslint.config.js` with TypeScript + React Hooks rules.
