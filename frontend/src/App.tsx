@@ -86,6 +86,7 @@ export default function App() {
   const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null)
   const [chatReturnView, setChatReturnView] = useState<ViewMode>('profile')
   const [chatInboxRefresh, setChatInboxRefresh] = useState(0)
+  const [editingListing, setEditingListing] = useState<Listing | null>(null)
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user])
   const isAuthLandingView = !isAuthenticated && (viewMode === 'login' || viewMode === 'register')
   const isWideView =
@@ -390,12 +391,17 @@ export default function App() {
           <CreateListing
             token={token}
             userCity={user.city || ''}
+            initialListing={editingListing}
             onSuccess={() => {
-              setViewMode('profile')
+              setViewMode('my-listings')
+              setEditingListing(null)
               setListingsRefresh((r) => r + 1)
-              setMessage('Listing created successfully.')
+              setMessage(editingListing ? 'Listing updated successfully.' : 'Listing created successfully.')
             }}
-            onCancel={() => setViewMode('profile')}
+            onCancel={() => {
+              setViewMode(editingListing ? 'my-listings' : 'profile')
+              setEditingListing(null)
+            }}
           />
         ) : isAuthenticated && viewMode === 'my-listings' && user ? (
           <>
@@ -411,6 +417,10 @@ export default function App() {
               token={token}
               refreshTrigger={listingsRefresh}
               onMarkSold={() => setListingsRefresh((r) => r + 1)}
+              onEdit={(listing) => {
+                setEditingListing(listing)
+                setViewMode('create-listing')
+              }}
             />
           </>
         ) : isAuthenticated && showCitySelector ? (
@@ -515,7 +525,14 @@ export default function App() {
               <div className="role-section">
                 <div className="role-title">Seller</div>
                 <div className="profile-actions">
-                  <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('create-listing')}>
+                  <button
+                    type="button"
+                    className="profile-action-btn primary"
+                    onClick={() => {
+                      setEditingListing(null)
+                      setViewMode('create-listing')
+                    }}
+                  >
                     <IconAddListing className="profile-action-icon" aria-hidden />
                     <span>Create Listing</span>
                   </button>

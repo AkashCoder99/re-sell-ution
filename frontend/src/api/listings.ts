@@ -361,6 +361,26 @@ async function mockListingsApi<TResponse>(
     return { listing } as TResponse
   }
 
+  // PATCH /api/v1/listings/:id
+  if (path.match(/^\/api\/v1\/listings\/[^/]+$/) && method === 'PATCH') {
+    const id = path.split('/')[4]
+    const payload = body as Partial<CreateListingRequest>
+    const listing = mockListings.find((l) => l.id === id)
+    if (!listing) throw new Error('Listing not found')
+
+    if (typeof payload.title === 'string') listing.title = payload.title
+    if (typeof payload.description === 'string') listing.description = payload.description
+    if (typeof payload.condition === 'string') listing.condition = payload.condition as Listing['condition']
+    if (typeof payload.price === 'number') listing.price = payload.price
+    if (typeof payload.currency === 'string') listing.currency = payload.currency
+    if (typeof payload.city === 'string') listing.city = payload.city
+    if (typeof payload.state === 'string') listing.state = payload.state
+    if (payload.category_id !== undefined) listing.category_id = payload.category_id ?? null
+    listing.updated_at = new Date().toISOString()
+
+    return { listing } as TResponse
+  }
+
   // DELETE /api/v1/listings/:id
   if (path.match(/^\/api\/v1\/listings\/[^/]+$/) && method === 'DELETE') {
     const id = path.split('/')[4]
@@ -588,6 +608,18 @@ export function deleteListing(token: string, listingId: string): Promise<{ messa
   return request<{ message: string }>(`/api/v1/listings/${listingId}`, {
     method: 'DELETE',
     token
+  })
+}
+
+export function updateListing(
+  token: string,
+  listingId: string,
+  payload: CreateListingPayload
+): Promise<CreateListingResponse> {
+  return request<CreateListingResponse>(`/api/v1/listings/${listingId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
   })
 }
 
