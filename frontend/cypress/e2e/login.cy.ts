@@ -17,19 +17,24 @@ describe('Login form', () => {
 
   it('fills in email and password fields', () => {
     cy.get('#login-email').type('test@example.com')
+    cy.wait(400)
     cy.get('#login-password').type('Password1')
+    cy.wait(400)
     cy.get('#login-email').should('have.value', 'test@example.com')
     cy.get('#login-password').should('have.value', 'Password1')
   })
 
   it('toggles password visibility', () => {
     cy.get('#login-password').should('have.attr', 'type', 'password')
+    cy.wait(400)
     cy.get('.auth-password-toggle').first().click()
+    cy.wait(500)
     cy.get('#login-password').should('have.attr', 'type', 'text')
   })
 
   it('switches to Register tab', () => {
     cy.contains('button', 'Register').click()
+    cy.wait(500)
     cy.get('.auth-mode-btn.active').should('contain.text', 'Register')
     cy.get('#register-name').should('exist')
   })
@@ -45,12 +50,14 @@ describe('Login form', () => {
 
   it('shows forgot password link and navigates to it', () => {
     cy.contains('Forgot password?').click()
+    cy.wait(600)
     cy.contains('Reset Password').should('be.visible')
     cy.get('#forgot-password-email').should('be.visible')
   })
 
   it('shows preview mode button and enters preview', () => {
     cy.contains('Preview app without login').click()
+    cy.wait(700)
     cy.contains('Demo User').should('be.visible')
   })
 })
