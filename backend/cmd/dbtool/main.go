@@ -27,6 +27,7 @@ var migrationFiles = []string{
 	"migrations/0011_chat_model_indexes.sql",
 	"migrations/0012_listing_reports.sql",
 	"migrations/0013_moderation_core.sql",
+	"migrations/0014_moderation_integrity_retention_backfill.sql",
 }
 
 var seedFiles = []string{
