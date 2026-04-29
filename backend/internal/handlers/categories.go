@@ -1,14 +1,20 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
 	"resellution/backend/internal/models"
 	"resellution/backend/internal/observability"
 )
 
+type categoryStore interface {
+	List(ctx context.Context) ([]models.Category, error)
+	Tree(ctx context.Context) ([]models.CategoryTreeNode, error)
+}
+
 type CategoryHandler struct {
-	Categories models.CategoryStore
+	Categories categoryStore
 }
 
 func (h CategoryHandler) List(w http.ResponseWriter, r *http.Request) {

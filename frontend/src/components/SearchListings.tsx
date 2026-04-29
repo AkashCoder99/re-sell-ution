@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Category, Listing } from '../types/listing'
 import { LISTING_CONDITIONS } from '../types/listing'
-import { getCategories, searchListings } from '../api/listings'
+import {
+  addFavorite,
+  getCategories,
+  getFavoriteStatus,
+  removeFavorite,
+  reportListing,
+  searchListings
+} from '../api/listings'
 import { IconBack, IconSearch } from './Icons'
 import ListingDetails from './ListingDetails'
 
@@ -11,6 +18,7 @@ interface SearchListingsProps {
   userCity: string
   onBack: () => void
   onStartChat?: (listing: Listing) => Promise<void>
+  onFavoritesChanged?: () => void | Promise<void>
 }
 
 const RECENT_KEY = 'resellution_recent_searches'
@@ -59,7 +67,13 @@ function saveRecent(list: string[]) {
   }
 }
 
-export default function SearchListings({ token, userCity, onBack, onStartChat }: SearchListingsProps) {
+export default function SearchListings({
+  token,
+  userCity,
+  onBack,
+  onStartChat,
+  onFavoritesChanged
+}: SearchListingsProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Listing[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -71,6 +85,7 @@ export default function SearchListings({ token, userCity, onBack, onStartChat }:
   const [lastQuery, setLastQuery] = useState('')
   const [showRecent, setShowRecent] = useState(false)
   const [selected, setSelected] = useState<Listing | null>(null)
+  const [selectedFavorited, setSelectedFavorited] = useState(false)
   const [filters, setFilters] = useState<Filters>(defaultFilters)
   const [draftFilters, setDraftFilters] = useState<Filters>(defaultFilters)
   const [showFilters, setShowFilters] = useState(false)
@@ -210,6 +225,48 @@ export default function SearchListings({ token, userCity, onBack, onStartChat }:
   useEffect(() => {
     setPage(1)
   }, [filters, results])
+
+  useEffect(() => {
+    if (!selected || selected.id === mockPreviewListing.id) {
+      setSelectedFavorited(false)
+      return
+    }
+
+    let active = true
+    getFavoriteStatus(token, selected.id)
+      .then((res) => {
+        if (active) {
+          setSelectedFavorited(Boolean(res.favorited))
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSelectedFavorited(false)
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [selected, token, mockPreviewListing.id])
+
+  async function handleToggleFavorite(listing: Listing, nextFavorite: boolean) {
+    if (nextFavorite) {
+      await addFavorite(token, listing.id)
+    } else {
+      await removeFavorite(token, listing.id)
+    }
+    if (onFavoritesChanged) {
+      await onFavoritesChanged()
+    }
+    if (selected?.id === listing.id) {
+      setSelectedFavorited(nextFavorite)
+    }
+  }
+
+  async function handleReport(listing: Listing) {
+    await reportListing(token, listing.id)
+  }
 
   return (
     <div className="search-page">
@@ -523,8 +580,10 @@ export default function SearchListings({ token, userCity, onBack, onStartChat }:
         <div className="search-modal-overlay" role="dialog" aria-modal="true">
           <div className="search-modal listing-details-modal">
             <ListingDetails
+              key={selected.id}
               listing={selected}
               onClose={() => setSelected(null)}
+              isFavorite={selected.id === mockPreviewListing.id ? false : selectedFavorited}
               onStartChat={
                 onStartChat
                   ? async (listing) => {
@@ -533,6 +592,10 @@ export default function SearchListings({ token, userCity, onBack, onStartChat }:
                     }
                   : undefined
               }
+              onToggleFavorite={
+                selected.id === mockPreviewListing.id ? undefined : handleToggleFavorite
+              }
+              onReport={selected.id === mockPreviewListing.id ? undefined : handleReport}
             />
           </div>
         </div>

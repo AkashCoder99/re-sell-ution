@@ -200,6 +200,7 @@ const mockListings: Listing[] = [
   }
 ]
 const mockListingImages: ListingImage[] = mockListings.flatMap((l) => l.images ?? [])
+const mockFavoriteIds = new Set<string>()
 const mockCategories: Category[] = [
   { id: 'cat_1', name: 'Electronics', slug: 'electronics', parent_id: null },
   { id: 'cat_2', name: 'Furniture', slug: 'furniture', parent_id: null },
@@ -230,7 +231,7 @@ async function mockListingsApi<TResponse>(
   }
   const authHeader = (options.headers as Record<string, string>)?.Authorization
   const token = authHeader?.replace('Bearer ', '')
-  if (!token && path.startsWith('/api/v1/listings')) {
+  if (!token && (path.startsWith('/api/v1/listings') || path.startsWith('/api/v1/favorites'))) {
     throw new Error('Unauthorized')
   }
 
@@ -301,7 +302,7 @@ async function mockListingsApi<TResponse>(
       currency: payload.currency || 'INR',
       city: payload.city,
       state: payload.state ?? null,
-      status: 'active',
+      status: payload.status ?? 'active',
       view_count: 0,
       created_at: now,
       updated_at: now
@@ -327,8 +328,8 @@ async function mockListingsApi<TResponse>(
     const limit = Math.min(20, Math.max(5, parseInt(url.searchParams.get('limit') || '10', 10)))
     const myListings = mockListings.filter((l) => l.seller_id === 'mock_user_id')
     const byStatus =
-      status === 'draft'
-        ? [] // mock has no drafts
+      status === 'all'
+        ? myListings
         : myListings.filter((l) => l.status === status)
     const total = byStatus.length
     const start = (page - 1) * limit
@@ -360,6 +361,26 @@ async function mockListingsApi<TResponse>(
     return { listing } as TResponse
   }
 
+  // PATCH /api/v1/listings/:id
+  if (path.match(/^\/api\/v1\/listings\/[^/]+$/) && method === 'PATCH') {
+    const id = path.split('/')[4]
+    const payload = body as Partial<CreateListingRequest>
+    const listing = mockListings.find((l) => l.id === id)
+    if (!listing) throw new Error('Listing not found')
+
+    if (typeof payload.title === 'string') listing.title = payload.title
+    if (typeof payload.description === 'string') listing.description = payload.description
+    if (typeof payload.condition === 'string') listing.condition = payload.condition as Listing['condition']
+    if (typeof payload.price === 'number') listing.price = payload.price
+    if (typeof payload.currency === 'string') listing.currency = payload.currency
+    if (typeof payload.city === 'string') listing.city = payload.city
+    if (typeof payload.state === 'string') listing.state = payload.state
+    if (payload.category_id !== undefined) listing.category_id = payload.category_id ?? null
+    listing.updated_at = new Date().toISOString()
+
+    return { listing } as TResponse
+  }
+
   // DELETE /api/v1/listings/:id
   if (path.match(/^\/api\/v1\/listings\/[^/]+$/) && method === 'DELETE') {
     const id = path.split('/')[4]
@@ -372,6 +393,31 @@ async function mockListingsApi<TResponse>(
       if (i !== -1) mockListingImages.splice(i, 1)
     })
     return { message: 'deleted' } as TResponse
+  }
+
+  // GET /api/v1/favorites/:listing_id
+  if (path.match(/^\/api\/v1\/favorites\/[^/]+$/) && method === 'GET') {
+    const listingId = path.split('/')[4]
+    return { favorited: mockFavoriteIds.has(listingId) } as TResponse
+  }
+
+  // PUT /api/v1/favorites/:listing_id
+  if (path.match(/^\/api\/v1\/favorites\/[^/]+$/) && method === 'PUT') {
+    const listingId = path.split('/')[4]
+    mockFavoriteIds.add(listingId)
+    return { message: 'favorited' } as TResponse
+  }
+
+  // DELETE /api/v1/favorites/:listing_id
+  if (path.match(/^\/api\/v1\/favorites\/[^/]+$/) && method === 'DELETE') {
+    const listingId = path.split('/')[4]
+    mockFavoriteIds.delete(listingId)
+    return { message: 'removed' } as TResponse
+  }
+
+  // POST /api/v1/listings/:id/report
+  if (path.match(/^\/api\/v1\/listings\/[^/]+\/report$/) && method === 'POST') {
+    return { message: 'listing reported' } as TResponse
   }
 
   // POST /api/v1/listings/:id/images — upload image (mock: accept URL or base64)
@@ -515,7 +561,7 @@ export interface MyListingsResponse {
 
 export async function getMyListings(
   token: string,
-  params: { status?: 'active' | 'sold' | 'draft'; page?: number; limit?: number } = {}
+  params: { status?: 'active' | 'reserved' | 'sold' | 'draft' | 'all'; page?: number; limit?: number } = {}
 ): Promise<MyListingsResponse> {
   const sp = new URLSearchParams()
   if (params.status) sp.set('status', params.status)
@@ -565,6 +611,18 @@ export function deleteListing(token: string, listingId: string): Promise<{ messa
   })
 }
 
+export function updateListing(
+  token: string,
+  listingId: string,
+  payload: CreateListingPayload
+): Promise<CreateListingResponse> {
+  return request<CreateListingResponse>(`/api/v1/listings/${listingId}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(payload)
+  })
+}
+
 export interface UploadImageResponse {
   image: ListingImage
 }
@@ -597,5 +655,74 @@ export function uploadListingImageFile(
     method: 'POST',
     token,
     body: form
+  })
+}
+
+export interface FavoriteStatusResponse {
+  favorited: boolean
+}
+
+export interface FavoriteListingsResponse {
+  listings: Listing[]
+  total: number
+}
+
+export function getFavoriteStatus(
+  token: string,
+  listingId: string
+): Promise<FavoriteStatusResponse> {
+  return request<FavoriteStatusResponse>(`/api/v1/favorites/${listingId}`, {
+    token
+  })
+}
+
+export function addFavorite(
+  token: string,
+  listingId: string
+): Promise<{ message: string }> {
+  return request<{ message: string }>(`/api/v1/favorites/${listingId}`, {
+    method: 'PUT',
+    token
+  })
+}
+
+export function removeFavorite(
+  token: string,
+  listingId: string
+): Promise<{ message: string }> {
+  return request<{ message: string }>(`/api/v1/favorites/${listingId}`, {
+    method: 'DELETE',
+    token
+  })
+}
+
+export async function getFavoriteListings(token: string): Promise<FavoriteListingsResponse> {
+  if (USE_MOCK) {
+    const listings = mockListings
+      .filter((listing) => mockFavoriteIds.has(listing.id))
+      .map((listing) => ({
+        ...listing,
+        images: mockListingImages.filter((img) => img.listing_id === listing.id)
+      }))
+    return { listings, total: listings.length }
+  }
+
+  const res = await request<Partial<FavoriteListingsResponse>>('/api/v1/favorites', { token })
+  const listings = Array.isArray(res?.listings) ? res.listings : []
+  return {
+    listings,
+    total: typeof res?.total === 'number' && res.total >= 0 ? res.total : listings.length
+  }
+}
+
+export function reportListing(
+  token: string,
+  listingId: string,
+  payload: { reason?: string } = {}
+): Promise<{ message: string }> {
+  return request<{ message: string }>(`/api/v1/listings/${listingId}/report`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify(payload)
   })
 }

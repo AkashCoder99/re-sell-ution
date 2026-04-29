@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ListingDetails from '../components/ListingDetails'
 import type { Listing } from '../types/listing'
 
@@ -43,5 +43,41 @@ describe('ListingDetails', () => {
       <ListingDetails listing={{ ...baseListing, status: 'deleted' }} onClose={() => {}} />
     )
     expect(screen.getByText('This listing is no longer available.')).toBeInTheDocument()
+  })
+
+  it('calls favorite toggle handler with the next state', async () => {
+    const onToggleFavorite = vi.fn().mockResolvedValue(undefined)
+    render(
+      <ListingDetails
+        listing={baseListing}
+        onClose={() => {}}
+        isFavorite={false}
+        onToggleFavorite={onToggleFavorite}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Favorite'))
+
+    await waitFor(() => {
+      expect(onToggleFavorite).toHaveBeenCalledWith(baseListing, true)
+    })
+  })
+
+  it('reports a listing and shows success feedback', async () => {
+    const onReport = vi.fn().mockResolvedValue(undefined)
+    render(
+      <ListingDetails
+        listing={baseListing}
+        onClose={() => {}}
+        onReport={onReport}
+      />
+    )
+
+    fireEvent.click(screen.getByText('Report'))
+
+    await waitFor(() => {
+      expect(onReport).toHaveBeenCalledWith(baseListing)
+    })
+    expect(await screen.findByText('Listing reported.')).toBeInTheDocument()
   })
 })

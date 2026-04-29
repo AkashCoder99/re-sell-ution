@@ -25,6 +25,10 @@ var migrationFiles = []string{
 	"migrations/0009_listing_sold_to.sql",
 	"migrations/0010_search_geo.sql",
 	"migrations/0011_chat_model_indexes.sql",
+	"migrations/0012_listing_reports.sql",
+	"migrations/0013_moderation_core.sql",
+	"migrations/0014_moderation_integrity_retention_backfill.sql",
+	"migrations/0013_listing_draft_status.sql",
 }
 
 var seedFiles = []string{

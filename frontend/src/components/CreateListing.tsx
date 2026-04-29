@@ -2,9 +2,9 @@
  * F12 - Create listing: multi-step flow (basic info -> details -> photos -> review)
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
-import type { CreateListingDraft, ListingCondition } from '../types/listing'
+import type { CreateListingDraft, ListingCondition, Listing } from '../types/listing'
 import { LISTING_CONDITIONS } from '../types/listing'
 import {
   validateListingTitle,
@@ -17,6 +17,7 @@ import {
   createListing,
   deleteListing,
   getCategories,
+  updateListing,
   uploadListingImageFile
 } from '../api/listings'
 import { IconAddListing } from './Icons'
@@ -41,24 +42,43 @@ interface CreateListingProps {
   userCity: string
   onSuccess: () => void
   onCancel: () => void
+  initialListing?: Listing | null
 }
 
 export default function CreateListing({
   token,
   userCity,
   onSuccess,
-  onCancel
+  onCancel,
+  initialListing = null
 }: CreateListingProps) {
+  const isEditMode = Boolean(initialListing)
   const [step, setStep] = useState<Step>('basic')
   const [draft, setDraft] = useState<CreateListingDraft>(() => ({
     ...defaultDraft,
-    city: userCity
+    title: initialListing?.title || '',
+    description: initialListing?.description || '',
+    condition: initialListing?.condition || defaultDraft.condition,
+    price: initialListing?.price || 0,
+    currency: initialListing?.currency || defaultDraft.currency,
+    city: initialListing?.city || userCity,
+    state: initialListing?.state || '',
+    category_id: initialListing?.category_id || null
   }))
-  const [photos, setPhotos] = useState<PhotoItem[]>([])
+  const [photos, setPhotos] = useState<PhotoItem[]>(
+    () =>
+      initialListing?.images?.map((img) => ({
+        id: img.id,
+        preview: img.image_url,
+        url: img.image_url,
+        progress: 100,
+        status: 'done' as const
+      })) || []
+  )
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [stepLoading, setStepLoading] = useState(false)
-  const [createdListingId, setCreatedListingId] = useState<string | null>(null)
+  const [createdListingId, setCreatedListingId] = useState<string | null>(initialListing?.id || null)
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
@@ -72,6 +92,63 @@ export default function CreateListing({
 
   const stepIndex = STEPS.indexOf(step)
   const progressPercent = ((stepIndex + 1) / STEPS.length) * 100
+  const initialSignature = useMemo(() => {
+    const base = initialListing
+      ? {
+          title: initialListing.title,
+          description: initialListing.description,
+          condition: initialListing.condition,
+          price: Number(initialListing.price),
+          currency: initialListing.currency,
+          city: initialListing.city,
+          state: initialListing.state || '',
+          category_id: initialListing.category_id || null
+        }
+      : {
+          ...defaultDraft,
+          city: userCity,
+          price: 0
+        }
+    const basePhotos = initialListing?.images?.map((img) => img.image_url) || []
+    return JSON.stringify({
+      ...base,
+      photos: basePhotos
+    })
+  }, [initialListing, userCity])
+
+  const currentSignature = useMemo(
+    () =>
+      JSON.stringify({
+        title: draft.title,
+        description: draft.description,
+        condition: draft.condition,
+        price: Number(draft.price),
+        currency: draft.currency,
+        city: draft.city,
+        state: draft.state,
+        category_id: draft.category_id || null,
+        photos: photos.map((p) => p.url || p.preview || '')
+      }),
+    [draft, photos]
+  )
+
+  const hasUnsavedChanges = useMemo(() => {
+    const formChanged = currentSignature !== initialSignature
+    return formChanged || (!isEditMode && createdListingId !== null) || step !== 'basic'
+  }, [currentSignature, initialSignature, isEditMode, createdListingId, step])
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [hasUnsavedChanges])
 
   const validateBasic = (): boolean => {
     const errs: Record<string, string> = {}
@@ -212,19 +289,48 @@ export default function CreateListing({
       if (!createdListingId) {
         throw new Error('Listing was not created yet')
       }
+      if (isEditMode) {
+        await updateListing(token, createdListingId, {
+          title: draft.title.trim(),
+          description: draft.description.trim(),
+          condition: draft.condition as ListingCondition,
+          price: Number(draft.price),
+          currency: draft.currency,
+          city: draft.city.trim(),
+          state: draft.state.trim() || undefined,
+          category_id: draft.category_id || undefined
+        })
+      }
       onSuccess()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to create listing')
+      setError(err instanceof Error ? err.message : `Failed to ${isEditMode ? 'update' : 'create'} listing`)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleCancel = async () => {
+    if (hasUnsavedChanges) {
+      const confirmed = window.confirm('You have unsaved listing changes. Leave this page?')
+      if (!confirmed) return
+    }
+
+    // Avoid leaving an empty active listing behind if the user cancels early.
+    if (createdListingId && !isEditMode) {
+      try {
+        await deleteListing(token, createdListingId)
+      } catch {
+        // Best-effort cleanup.
+      }
+    }
+    onCancel()
   }
 
   return (
     <div className="create-listing">
       <h2 className="create-listing-heading">
         <IconAddListing className="create-listing-heading-icon" aria-hidden />
-        Create Listing
+        {isEditMode ? 'Edit Listing' : 'Create Listing'}
       </h2>
       <p className="create-listing-subtitle">Add your item details in a few quick steps.</p>
       <p className="create-listing-step-index">
@@ -443,16 +549,8 @@ export default function CreateListing({
             <button
               type="button"
               className="profile-edit-btn secondary"
-              onClick={async () => {
-                // Avoid leaving an empty active listing behind if the user cancels early.
-                if (createdListingId) {
-                  try {
-                    await deleteListing(token, createdListingId)
-                  } catch {
-                    // Best-effort cleanup.
-                  }
-                }
-                onCancel()
+              onClick={() => {
+                void handleCancel()
               }}
               disabled={stepLoading}
             >
@@ -472,7 +570,7 @@ export default function CreateListing({
             </button>
           ) : (
             <button type="submit" className="profile-edit-btn primary" disabled={loading}>
-              {loading ? 'Publishing...' : 'Publish Listing'}
+              {loading ? (isEditMode ? 'Saving...' : 'Publishing...') : isEditMode ? 'Save Changes' : 'Publish Listing'}
             </button>
           )}
         </div>

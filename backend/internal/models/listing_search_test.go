@@ -31,6 +31,16 @@ func TestBuildListingSearchFiltersIncludesConditionAndPrice(t *testing.T) {
 	}
 }
 
+func TestBuildListingSearchFiltersOnlyPublicActiveListings(t *testing.T) {
+	where, _, _ := buildListingSearchFilters(ListingSearchParams{TSQuery: "bike:*"})
+	if !strings.Contains(where, "l.deleted_at IS NULL") {
+		t.Fatalf("expected deleted listings to be hidden: %s", where)
+	}
+	if !strings.Contains(where, "l.status = 'active'") {
+		t.Fatalf("expected draft/sold listings to be hidden from public search: %s", where)
+	}
+}
+
 func TestBuildListingSearchOrderClauseSortOptions(t *testing.T) {
 	cases := []struct {
 		sortBy   string

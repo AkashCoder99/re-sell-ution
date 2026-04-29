@@ -54,6 +54,7 @@ type ListingCreate struct {
 	Latitude    *float64
 	Longitude   *float64
 	ImageURLs   []string
+	Status      string
 }
 
 type ListingPatch struct {
@@ -91,6 +92,10 @@ func (s ListingStore) Create(ctx context.Context, sellerID, updatedBy string, in
 	if in.Currency == "" {
 		in.Currency = "INR"
 	}
+	in.Status = strings.TrimSpace(in.Status)
+	if in.Status == "" {
+		in.Status = "active"
+	}
 	listingID := uuid.NewString()
 
 	tx, err := s.DB.BeginTx(ctx, nil)
@@ -104,7 +109,7 @@ func (s ListingStore) Create(ctx context.Context, sellerID, updatedBy string, in
 			id, seller_id, category_id, title, description, condition,
 			price, currency, city, state, latitude, longitude, status, updated_by
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'active', $13)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING created_at, updated_at
 	`
 	var cat interface{}
@@ -154,12 +159,12 @@ func (s ListingStore) Create(ctx context.Context, sellerID, updatedBy string, in
 		value := *in.Longitude
 		l.Longitude = &value
 	}
-	l.Status = "active"
+	l.Status = in.Status
 	l.ViewCount = 0
 
 	err = tx.QueryRowContext(ctx, query,
 		listingID, sellerID, cat, in.Title, in.Description, in.Condition,
-		in.Price, in.Currency, in.City, state, latitude, longitude, updatedBy,
+		in.Price, in.Currency, in.City, state, latitude, longitude, in.Status, updatedBy,
 	).Scan(&l.CreatedAt, &l.UpdatedAt)
 	if err != nil {
 		return Listing{}, err
@@ -724,16 +729,6 @@ func (s ListingStore) ListBySeller(ctx context.Context, sellerID, statusFilter s
 	}
 	if limit > 20 {
 		limit = 20
-	}
-
-	if statusFilter == "draft" {
-		return MyListingsPage{
-			Listings:   []Listing{},
-			Total:      0,
-			Page:       page,
-			Limit:      limit,
-			TotalPages: 1,
-		}, nil
 	}
 
 	var countQuery string

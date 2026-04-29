@@ -27,6 +27,9 @@ func TestValidateListingCreate(t *testing.T) {
 	if in.Currency != "INR" {
 		t.Fatal("currency should remain INR")
 	}
+	if in.Status != "active" {
+		t.Fatalf("status should default to active, got %q", in.Status)
+	}
 
 	in2 := models.ListingCreate{
 		Title: "T", Description: "D", Condition: "broken", Price: 1, City: "X",
@@ -65,6 +68,64 @@ func TestValidateListingCreate(t *testing.T) {
 	}
 	if err := validateListingCreate(&in6); err == nil {
 		t.Fatal("expected lat without lng")
+	}
+}
+
+func TestValidateListingCreateStatus(t *testing.T) {
+	for _, status := range []string{"active", "draft"} {
+		in := models.ListingCreate{
+			Title:       "T",
+			Description: "D",
+			Condition:   "good",
+			Price:       1,
+			City:        "Here",
+			Status:      status,
+		}
+		if err := validateListingCreate(&in); err != nil {
+			t.Fatalf("status %q should be valid: %v", status, err)
+		}
+	}
+
+	for _, status := range []string{"reserved", "sold", "deleted", "unknown"} {
+		in := models.ListingCreate{
+			Title:       "T",
+			Description: "D",
+			Condition:   "good",
+			Price:       1,
+			City:        "Here",
+			Status:      status,
+		}
+		if err := validateListingCreate(&in); err == nil {
+			t.Fatalf("status %q should be invalid on create", status)
+		}
+	}
+}
+
+func TestNormalizePatchListingStatus(t *testing.T) {
+	for _, status := range []string{"active", "reserved", "sold", "draft"} {
+		got, err := normalizePatchListingStatus(" " + status + " ")
+		if err != nil {
+			t.Fatalf("status %q should be valid: %v", status, err)
+		}
+		if got != status {
+			t.Fatalf("got %q, want %q", got, status)
+		}
+	}
+
+	if _, err := normalizePatchListingStatus("deleted"); err == nil {
+		t.Fatal("deleted should not be patchable through status endpoint")
+	}
+}
+
+func TestNormalizeListMineStatusFilter(t *testing.T) {
+	for _, status := range []string{"", "all", "active", "reserved", "sold", "draft"} {
+		if _, err := normalizeListMineStatusFilter(status); err != nil {
+			t.Fatalf("status filter %q should be valid: %v", status, err)
+		}
+	}
+
+	if _, err := normalizeListMineStatusFilter("deleted"); err == nil {
+		t.Fatal("deleted should not be accepted as a seller listing filter")
 	}
 }
 
@@ -151,5 +212,25 @@ func TestValidateImageURL(t *testing.T) {
 	}
 	if err := validateImageURL("not-a-url"); err == nil {
 		t.Fatal("relative")
+	}
+}
+
+func TestFindProhibitedWord(t *testing.T) {
+	blocked, ok := findProhibitedWord([]string{"scam", "fake"}, "great deal", "this is a FAKE phone")
+	if !ok || blocked != "fake" {
+		t.Fatalf("expected fake to be blocked, got blocked=%q ok=%v", blocked, ok)
+	}
+
+	if blocked, ok := findProhibitedWord([]string{"scam"}, "clean title", "safe description"); ok || blocked != "" {
+		t.Fatalf("expected no blocked term, got blocked=%q ok=%v", blocked, ok)
+	}
+}
+
+func TestFindProhibitedWordFromPatch(t *testing.T) {
+	description := "contains stolen goods"
+	patch := models.ListingPatch{Description: &description}
+	blocked, ok := findProhibitedWordFromPatch([]string{"stolen"}, patch)
+	if !ok || blocked != "stolen" {
+		t.Fatalf("expected stolen to be blocked, got blocked=%q ok=%v", blocked, ok)
 	}
 }

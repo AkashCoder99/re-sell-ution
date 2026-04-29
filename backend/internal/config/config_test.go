@@ -37,12 +37,39 @@ func TestLoadAcceptsValidSMTPConfig(t *testing.T) {
 	}
 }
 
+func TestLoadParsesListingModerationConfig(t *testing.T) {
+	setBaseEnv(t)
+	t.Setenv("LISTING_WRITE_RATE_LIMIT_PER_IP", "12")
+	t.Setenv("LISTING_WRITE_RATE_LIMIT_WINDOW_MINUTES", "30")
+	t.Setenv("LISTING_PROHIBITED_WORDS", "scam, fake, stolen ")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("expected Load to parse listing moderation config, got error: %v", err)
+	}
+	if cfg.ListingWriteRateLimitPerIP != 12 {
+		t.Fatalf("expected ListingWriteRateLimitPerIP=12, got %d", cfg.ListingWriteRateLimitPerIP)
+	}
+	if cfg.ListingWriteRateLimitWindowMinutes != 30 {
+		t.Fatalf("expected ListingWriteRateLimitWindowMinutes=30, got %d", cfg.ListingWriteRateLimitWindowMinutes)
+	}
+	if len(cfg.ListingProhibitedWords) != 3 {
+		t.Fatalf("expected 3 prohibited words, got %d", len(cfg.ListingProhibitedWords))
+	}
+	if cfg.ListingProhibitedWords[0] != "scam" || cfg.ListingProhibitedWords[2] != "stolen" {
+		t.Fatalf("unexpected prohibited words: %#v", cfg.ListingProhibitedWords)
+	}
+}
+
 func setBaseEnv(t *testing.T) {
 	t.Helper()
 
 	t.Setenv("DATABASE_URL", "postgres://postgres:password@localhost:5432/resellution?sslmode=disable")
 	t.Setenv("TOKEN_SECRET", "test-secret")
 	for _, key := range []string{
+		"LISTING_WRITE_RATE_LIMIT_PER_IP",
+		"LISTING_WRITE_RATE_LIMIT_WINDOW_MINUTES",
+		"LISTING_PROHIBITED_WORDS",
 		"SMTP_HOST",
 		"SMTP_PORT",
 		"SMTP_USERNAME",

@@ -13,6 +13,9 @@ tags:
   - name: Users
   - name: Categories
   - name: Listings
+  - name: Favorites
+  - name: Chat
+  - name: Notifications
 
 components:
   securitySchemes:
@@ -113,7 +116,9 @@ components:
         currency: { type: string }
         city: { type: string }
         state: { type: string, nullable: true }
-        status: { type: string }
+        status:
+          type: string
+          enum: [active, reserved, sold, draft, deleted]
         view_count: { type: integer }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -145,6 +150,10 @@ components:
         city: { type: string }
         state: { type: string }
         category_id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [active, draft]
+          default: active
       required: [title, description, condition, price, city]
 
     CreateListingResponse:
@@ -164,16 +173,181 @@ components:
         total: { type: integer }
       required: [listings, total]
 
+    PaginatedListingsResponse:
+      type: object
+      properties:
+        listings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Listing'
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        total_pages: { type: integer }
+      required: [listings, total, page, limit, total_pages]
+
+    Favorite:
+      type: object
+      properties:
+        listing_id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+      required: [listing_id, created_at]
+
+    FavoritesResponse:
+      type: object
+      properties:
+        favorites:
+          type: array
+          items:
+            $ref: '#/components/schemas/Favorite'
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        total_pages: { type: integer }
+      required: [favorites, total, page, limit, total_pages]
+
+    FavoriteStatusResponse:
+      type: object
+      properties:
+        favorited: { type: boolean }
+      required: [favorited]
+
+    ListingReportRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+
     UpdateStatusRequest:
       type: object
       properties:
         status:
           type: string
-          enum: [active, sold, draft]
+          enum: [active, reserved, sold, draft]
         sold_to_user_id:
           type: string
           format: uuid
       required: [status]
+
+    ChatMessage:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        sender_id: { type: string, format: uuid }
+        text: { type: string }
+        created_at: { type: string, format: date-time }
+        read_by:
+          type: array
+          items: { type: string, format: uuid }
+      required: [id, sender_id, text, created_at]
+
+    ChatConversation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        listing_id: { type: string, format: uuid }
+        listing_title: { type: string }
+        listing_price: { type: number }
+        listing_city: { type: string }
+        buyer_id: { type: string, format: uuid }
+        seller_id: { type: string, format: uuid }
+        seller_name: { type: string }
+        participant_name: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        unread_count: { type: integer }
+        last_message_text: { type: string }
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+      required:
+        - id
+        - listing_id
+        - listing_title
+        - listing_price
+        - listing_city
+        - buyer_id
+        - seller_id
+        - seller_name
+        - created_at
+        - updated_at
+        - unread_count
+        - last_message_text
+        - messages
+
+    CreateConversationRequest:
+      type: object
+      properties:
+        buyer_id: { type: string, format: uuid }
+        seller_id: { type: string, format: uuid }
+        seller_name: { type: string }
+        listing_id: { type: string, format: uuid }
+        listing_title: { type: string }
+        listing_price: { type: number }
+        listing_city: { type: string }
+      required: [listing_id]
+
+    SendMessageRequest:
+      type: object
+      properties:
+        sender_id: { type: string, format: uuid }
+        text: { type: string }
+      required: [text]
+
+    ConversationsResponse:
+      type: object
+      properties:
+        conversations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatConversation'
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        total_pages: { type: integer }
+      required: [conversations, total, page, limit, total_pages]
+
+    MessagesResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        total_pages: { type: integer }
+      required: [messages, total, page, limit, total_pages]
+
+    Notification:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        type: { type: string }
+        title: { type: string }
+        body: { type: string, nullable: true }
+        reference_id: { type: string, format: uuid, nullable: true }
+        is_read: { type: boolean }
+        created_at: { type: string, format: date-time }
+      required: [id, user_id, type, title, is_read, created_at]
+
+    NotificationsResponse:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        total_pages: { type: integer }
+        unread_total: { type: integer }
+      required: [notifications, total, page, limit, total_pages, unread_total]
 
 paths:
   /:
@@ -372,14 +546,14 @@ paths:
           required: false
           schema:
             type: string
-            enum: [active, sold, draft]
+            enum: [active, reserved, sold, draft, all]
       responses:
         '200':
           description: My listings
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListingsResponse'
+                $ref: '#/components/schemas/PaginatedListingsResponse'
         '401':
           description: Unauthorized
 
@@ -473,5 +647,424 @@ paths:
                 properties:
                   image:
                     $ref: '#/components/schemas/ListingImage'
+        '401':
+          description: Unauthorized
+
+  /api/v1/listings/{id}/report:
+    post:
+      tags: [Listings]
+      summary: Report a listing
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListingReportRequest'
+      responses:
+        '201':
+          description: Listing reported
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Listing not found
+
+  /api/v1/favorites:
+    get:
+      tags: [Favorites]
+      summary: List favorites for the current user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Favorites page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoritesResponse'
+        '401':
+          description: Unauthorized
+
+  /api/v1/favorites/{listing_id}:
+    get:
+      tags: [Favorites]
+      summary: Check whether a listing is favorited by the current user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: listing_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Favorite status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoriteStatusResponse'
+        '401':
+          description: Unauthorized
+    put:
+      tags: [Favorites]
+      summary: Favorite a listing
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: listing_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Favorited
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+        '404':
+          description: Listing not found
+    delete:
+      tags: [Favorites]
+      summary: Remove a listing from favorites
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: listing_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+
+  /api/v1/chat/conversations:
+    get:
+      tags: [Chat]
+      summary: List conversations for the current user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Conversation inbox
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationsResponse'
+        '401':
+          description: Unauthorized
+    post:
+      tags: [Chat]
+      summary: Create or return a buyer conversation for a listing
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '200':
+          description: Conversation created or already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation:
+                    $ref: '#/components/schemas/ChatConversation'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Listing not found
+
+  /api/v1/chat/conversations/{id}:
+    get:
+      tags: [Chat]
+      summary: Get a single conversation with recent messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Conversation detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation:
+                    $ref: '#/components/schemas/ChatConversation'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Conversation not found
+
+  /api/v1/chat/conversations/{id}/messages:
+    get:
+      tags: [Chat]
+      summary: List messages for a conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Messages page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagesResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Conversation not found
+    post:
+      tags: [Chat]
+      summary: Send a message in a conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: Message created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: '#/components/schemas/ChatMessage'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Conversation not found
+
+  /api/v1/chat/conversations/{id}/read:
+    patch:
+      tags: [Chat]
+      summary: Mark all incoming messages in a conversation as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Marked read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Conversation not found
+
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications for the current user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: unread
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Notifications page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsResponse'
+        '401':
+          description: Unauthorized
+
+  /api/v1/notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark a single notification as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Notification updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notification:
+                    $ref: '#/components/schemas/Notification'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Notification not found
+
+  /api/v1/notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: Mark all notifications for the current user as read
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Notifications marked read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated:
+                    type: integer
         '401':
           description: Unauthorized

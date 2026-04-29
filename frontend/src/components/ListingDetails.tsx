@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Listing } from '../types/listing'
 import { LISTING_STATUS_LABELS } from '../types/listing'
 import { IconBack, IconImage, IconLocation, IconUser } from './Icons'
@@ -8,6 +8,9 @@ interface ListingDetailsProps {
   onClose: () => void
   onBack?: () => void
   onStartChat?: (listing: Listing) => Promise<void>
+  isFavorite?: boolean
+  onToggleFavorite?: (listing: Listing, nextFavorite: boolean) => Promise<void>
+  onReport?: (listing: Listing) => Promise<void>
 }
 
 function formatRelativeTime(iso: string): string {
@@ -23,17 +26,34 @@ function formatRelativeTime(iso: string): string {
   return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
-export default function ListingDetails({ listing, onClose, onBack, onStartChat }: ListingDetailsProps) {
+export default function ListingDetails({
+  listing,
+  onClose,
+  onBack,
+  onStartChat,
+  isFavorite = false,
+  onToggleFavorite,
+  onReport
+}: ListingDetailsProps) {
   const images = listing.images || []
   const [index, setIndex] = useState(0)
-  const [favorite, setFavorite] = useState(false)
+  const [favorite, setFavorite] = useState(isFavorite)
   const [touchStart, setTouchStart] = useState<number | null>(null)
   const [chatting, setChatting] = useState(false)
   const [chatError, setChatError] = useState('')
+  const [favoriteLoading, setFavoriteLoading] = useState(false)
+  const [favoriteError, setFavoriteError] = useState('')
+  const [reporting, setReporting] = useState(false)
+  const [reportError, setReportError] = useState('')
+  const [reportMessage, setReportMessage] = useState('')
 
   const currentImage = useMemo(() => images[index], [images, index])
   const isUnavailable = listing.status === 'deleted'
   const statusLabel = LISTING_STATUS_LABELS[listing.status] || listing.status
+
+  useEffect(() => {
+    setFavorite(isFavorite)
+  }, [isFavorite])
 
   const goNext = () => {
     if (images.length === 0) return
@@ -55,6 +75,36 @@ export default function ListingDetails({ listing, onClose, onBack, onStartChat }
       setChatError(error instanceof Error ? error.message : 'Failed to start chat.')
     } finally {
       setChatting(false)
+    }
+  }
+
+  const handleToggleFavorite = async () => {
+    if (!onToggleFavorite || favoriteLoading) return
+    setFavoriteLoading(true)
+    setFavoriteError('')
+    const nextFavorite = !favorite
+    try {
+      await onToggleFavorite(listing, nextFavorite)
+      setFavorite(nextFavorite)
+    } catch (error: unknown) {
+      setFavoriteError(error instanceof Error ? error.message : 'Failed to update favorite.')
+    } finally {
+      setFavoriteLoading(false)
+    }
+  }
+
+  const handleReport = async () => {
+    if (!onReport || reporting) return
+    setReporting(true)
+    setReportError('')
+    setReportMessage('')
+    try {
+      await onReport(listing)
+      setReportMessage('Listing reported.')
+    } catch (error: unknown) {
+      setReportError(error instanceof Error ? error.message : 'Failed to report listing.')
+    } finally {
+      setReporting(false)
     }
   }
 
@@ -167,14 +217,39 @@ export default function ListingDetails({ listing, onClose, onBack, onStartChat }
           <button
             type="button"
             className="profile-edit-btn secondary"
-            onClick={() => setFavorite((v) => !v)}
+            onClick={() => {
+              void handleToggleFavorite()
+            }}
+            disabled={favoriteLoading || !onToggleFavorite}
           >
-            {favorite ? 'Unfavorite' : 'Favorite'}
+            {favoriteLoading ? 'Saving...' : favorite ? 'Unfavorite' : 'Favorite'}
           </button>
-          <button type="button" className="profile-edit-btn secondary">
-            Report
+          <button
+            type="button"
+            className="profile-edit-btn secondary"
+            onClick={() => {
+              void handleReport()
+            }}
+            disabled={reporting || !onReport}
+          >
+            {reporting ? 'Reporting...' : 'Report'}
           </button>
         </div>
+        {favoriteError && (
+          <div className="listing-details-chat-error">
+            <span>{favoriteError}</span>
+          </div>
+        )}
+        {reportError && (
+          <div className="listing-details-chat-error">
+            <span>{reportError}</span>
+          </div>
+        )}
+        {reportMessage && (
+          <div className="message">
+            <span>{reportMessage}</span>
+          </div>
+        )}
         {chatError && (
           <div className="listing-details-chat-error">
             <span>{chatError}</span>

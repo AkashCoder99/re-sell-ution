@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -12,8 +13,15 @@ import (
 	"resellution/backend/internal/observability"
 )
 
+type favoriteStore interface {
+	Add(ctx context.Context, userID, listingID string) error
+	Remove(ctx context.Context, userID, listingID string) error
+	Has(ctx context.Context, userID, listingID string) (bool, error)
+	ListByUser(ctx context.Context, userID string, page, limit int) (models.FavoritesPage, error)
+}
+
 type FavoriteHandler struct {
-	Favorites models.FavoriteStore
+	Favorites favoriteStore
 }
 
 func (h FavoriteHandler) Add(w http.ResponseWriter, r *http.Request) {
@@ -115,4 +123,31 @@ func (h FavoriteHandler) List(w http.ResponseWriter, r *http.Request) {
 		"limit":       res.Limit,
 		"total_pages": res.TotalPages,
 	})
+}
+
+func (h FavoriteHandler) Status(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	listingID := r.PathValue("listing_id")
+	if _, err := uuid.Parse(listingID); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid listing id"})
+		return
+	}
+
+	favorited, err := h.Favorites.Has(r.Context(), userID, listingID)
+	if err != nil {
+		observability.Error(r.Context(), "favorites.status.failed", map[string]any{
+			"user_id":    userID,
+			"listing_id": listingID,
+			"error":      err.Error(),
+		})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load favorite status"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]bool{"favorited": favorited})
 }
