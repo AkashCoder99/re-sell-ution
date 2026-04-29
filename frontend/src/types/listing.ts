@@ -3,7 +3,7 @@
  */
 
 export type ListingCondition = 'new' | 'like_new' | 'good' | 'fair' | 'poor'
-export type ListingStatus = 'active' | 'reserved' | 'sold' | 'deleted'
+export type ListingStatus = 'active' | 'reserved' | 'sold' | 'draft' | 'deleted'
 
 export interface Category {
   id: string
@@ -47,6 +47,7 @@ export interface CreateListingRequest {
   city: string
   state?: string
   category_id?: string | null
+  status?: 'active' | 'draft'
 }
 
 export interface CreateListingDraft {
@@ -73,5 +74,6 @@ export const LISTING_STATUS_LABELS: Record<ListingStatus, string> = {
   active: 'Active',
   reserved: 'Reserved',
   sold: 'Sold',
+  draft: 'Draft',
   deleted: 'Deleted'
 }

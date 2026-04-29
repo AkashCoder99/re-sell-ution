@@ -302,7 +302,7 @@ async function mockListingsApi<TResponse>(
       currency: payload.currency || 'INR',
       city: payload.city,
       state: payload.state ?? null,
-      status: 'active',
+      status: payload.status ?? 'active',
       view_count: 0,
       created_at: now,
       updated_at: now
@@ -328,8 +328,8 @@ async function mockListingsApi<TResponse>(
     const limit = Math.min(20, Math.max(5, parseInt(url.searchParams.get('limit') || '10', 10)))
     const myListings = mockListings.filter((l) => l.seller_id === 'mock_user_id')
     const byStatus =
-      status === 'draft'
-        ? [] // mock has no drafts
+      status === 'all'
+        ? myListings
         : myListings.filter((l) => l.status === status)
     const total = byStatus.length
     const start = (page - 1) * limit
@@ -541,7 +541,7 @@ export interface MyListingsResponse {
 
 export async function getMyListings(
   token: string,
-  params: { status?: 'active' | 'sold' | 'draft'; page?: number; limit?: number } = {}
+  params: { status?: 'active' | 'reserved' | 'sold' | 'draft' | 'all'; page?: number; limit?: number } = {}
 ): Promise<MyListingsResponse> {
   const sp = new URLSearchParams()
   if (params.status) sp.set('status', params.status)
