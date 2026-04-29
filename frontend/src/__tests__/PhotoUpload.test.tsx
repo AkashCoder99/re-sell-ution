@@ -14,6 +14,6 @@ describe('PhotoUpload', () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     const file = new File(['hello'], 'test.png', { type: 'image/png' })
     fireEvent.change(input, { target: { files: [file] } })
-    expect(screen.getByText('No preview')).toBeInTheDocument()
+    expect(screen.getByAltText('Upload 1')).toBeInTheDocument()
   })
 })

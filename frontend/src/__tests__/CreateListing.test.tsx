@@ -36,12 +36,20 @@ describe('CreateListing', () => {
     fireEvent.click(screen.getByText('Next'))
 
     fireEvent.change(screen.getByPlaceholderText('Describe condition, dimensions, reason for selling...'), {
-      target: { value: 'Nice lamp' }
+      target: { value: 'Nice lamp in very good condition' }
     })
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '10' } })
     fireEvent.click(screen.getByText('Next'))
 
+    await waitFor(() => {
+      expect(screen.getByText('No photos? You can skip and add them later.')).toBeInTheDocument()
+    })
+
     fireEvent.click(screen.getByText('Next'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Publish Listing')).toBeInTheDocument()
+    })
     fireEvent.click(screen.getByText('Publish Listing'))
 
     await waitFor(() => {

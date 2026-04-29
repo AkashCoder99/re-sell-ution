@@ -2,17 +2,20 @@ import { useEffect, useState } from 'react'
 import type { Listing } from '../types/listing'
 import { getFavoriteListings, removeFavorite } from '../api/listings'
 import { IconBack } from './Icons'
+import ListingDetails from './ListingDetails'
 
 interface FavoritesPageProps {
   token: string
   onBack: () => void
+  onFavoritesChanged?: () => void | Promise<void>
 }
 
-export default function FavoritesPage({ token, onBack }: FavoritesPageProps) {
+export default function FavoritesPage({ token, onBack, onFavoritesChanged }: FavoritesPageProps) {
   const [favorites, setFavorites] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Listing | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -45,6 +48,9 @@ export default function FavoritesPage({ token, onBack }: FavoritesPageProps) {
     try {
       await removeFavorite(token, listingId)
       setFavorites((prev) => prev.filter((item) => item.id !== listingId))
+      if (onFavoritesChanged) {
+        await onFavoritesChanged()
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to remove favorite.')
     } finally {
@@ -85,6 +91,13 @@ export default function FavoritesPage({ token, onBack }: FavoritesPageProps) {
                 <p className="browse-card-meta">{listing.city}</p>
                 <button
                   type="button"
+                  className="profile-edit-btn primary"
+                  onClick={() => setSelected(listing)}
+                >
+                  View details
+                </button>
+                <button
+                  type="button"
                   className="profile-edit-btn secondary"
                   onClick={() => {
                     void handleRemove(listing.id)
@@ -96,6 +109,13 @@ export default function FavoritesPage({ token, onBack }: FavoritesPageProps) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {selected && (
+        <div className="search-modal-overlay" role="dialog" aria-modal="true">
+          <div className="search-modal listing-details-modal">
+            <ListingDetails listing={selected} onClose={() => setSelected(null)} />
+          </div>
         </div>
       )}
     </div>

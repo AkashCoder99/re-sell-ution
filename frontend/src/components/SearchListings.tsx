@@ -18,6 +18,7 @@ interface SearchListingsProps {
   userCity: string
   onBack: () => void
   onStartChat?: (listing: Listing) => Promise<void>
+  onFavoritesChanged?: () => void | Promise<void>
 }
 
 const RECENT_KEY = 'resellution_recent_searches'
@@ -66,7 +67,13 @@ function saveRecent(list: string[]) {
   }
 }
 
-export default function SearchListings({ token, userCity, onBack, onStartChat }: SearchListingsProps) {
+export default function SearchListings({
+  token,
+  userCity,
+  onBack,
+  onStartChat,
+  onFavoritesChanged
+}: SearchListingsProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Listing[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -248,6 +255,9 @@ export default function SearchListings({ token, userCity, onBack, onStartChat }:
       await addFavorite(token, listing.id)
     } else {
       await removeFavorite(token, listing.id)
+    }
+    if (onFavoritesChanged) {
+      await onFavoritesChanged()
     }
     if (selected?.id === listing.id) {
       setSelectedFavorited(nextFavorite)

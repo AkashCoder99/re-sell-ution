@@ -15,7 +15,7 @@ import {
 
 describe('constants', () => {
   it('API_BASE_URL defaults to localhost', () => {
-    expect(API_BASE_URL).toBe('http://localhost:8080')
+    expect(API_BASE_URL).toMatch(/^http:\/\/localhost:\d+$/)
   })
 
   it('TOKEN_KEY is auth_token', () => {

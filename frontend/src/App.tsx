@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { getMe, login, logout, register, updateProfile } from './api/auth'
+import { getFavoriteListings } from './api/listings'
 import type { LoginRequest, RegisterRequest } from './api/auth'
 import type { PublicUser, UpdateProfileRequest } from './types/user'
 import type { Listing } from './types/listing'
@@ -87,6 +88,7 @@ export default function App() {
   const [chatReturnView, setChatReturnView] = useState<ViewMode>('profile')
   const [chatInboxRefresh, setChatInboxRefresh] = useState(0)
   const [editingListing, setEditingListing] = useState<Listing | null>(null)
+  const [savedCount, setSavedCount] = useState(0)
   const isAuthenticated = useMemo(() => Boolean(token && user), [token, user])
   const isAuthLandingView = !isAuthenticated && (viewMode === 'login' || viewMode === 'register')
   const isWideView =
@@ -197,6 +199,11 @@ export default function App() {
       setViewMode('profile')
     }
   }, [viewMode, activeConversation])
+
+  useEffect(() => {
+    if (viewMode !== 'profile') return
+    void refreshSavedCount()
+  }, [viewMode, token, isAuthenticated])
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -372,7 +379,7 @@ export default function App() {
             onOpenConversation={handleOpenConversation}
           />
         ) : isAuthenticated && viewMode === 'favorites' && user ? (
-          <FavoritesPage token={token} onBack={() => setViewMode('profile')} />
+          <FavoritesPage token={token} onBack={() => setViewMode('profile')} onFavoritesChanged={refreshSavedCount} />
         ) : isAuthenticated && viewMode === 'chat' && user && activeConversation ? (
           <ChatThread
             conversation={activeConversation}
@@ -386,6 +393,7 @@ export default function App() {
             userCity={user.city || ''}
             onBack={() => setViewMode('profile')}
             onStartChat={handleStartChat}
+            onFavoritesChanged={refreshSavedCount}
           />
         ) : isAuthenticated && viewMode === 'create-listing' && user ? (
           <CreateListing
@@ -517,7 +525,7 @@ export default function App() {
                   </button>
                   <button type="button" className="profile-action-btn" onClick={() => setViewMode('favorites')}>
                     <IconListings className="profile-action-icon" aria-hidden />
-                    <span>Saved</span>
+                    <span>Saved {savedCount > 0 ? `(${savedCount})` : ''}</span>
                   </button>
                 </div>
               </div>
@@ -761,3 +769,15 @@ export default function App() {
     </main>
   )
 }
+  async function refreshSavedCount() {
+    if (!isAuthenticated || !token) {
+      setSavedCount(0)
+      return
+    }
+    try {
+      const res = await getFavoriteListings(token)
+      setSavedCount(res.total)
+    } catch {
+      setSavedCount(0)
+    }
+  }
