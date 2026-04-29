@@ -7,8 +7,8 @@ ReSellution is a full-stack marketplace application similar to OLX, built with m
 - Create accounts and manage profiles
 - Select their city for localized listings
 - List, discover, and purchase pre-owned items
-- Chat with buyers/sellers (planned)
-- Save favorite listings (planned)
+- Chat with buyers/sellers
+- Save favorite listings
 
 ## Tech Stack
 - **Frontend**: React 18 + TypeScript + Vite
@@ -30,7 +30,7 @@ ReSellution is a full-stack marketplace application similar to OLX, built with m
 - `backend/migrations`: PostgreSQL schema
 
 ## Database Design (PostgreSQL)
-The schema supports current auth plus future OLX-style modules.
+The schema supports auth, marketplace listings, saved items, and buyer-seller messaging.
 
 Tables:
 - `users`: auth + profile basics
