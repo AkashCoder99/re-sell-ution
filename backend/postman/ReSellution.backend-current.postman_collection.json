@@ -1,0 +1,1065 @@
+{
+  "info": {
+    "name": "ReSellution Backend API - Current",
+    "description": "Import-ready Postman collection for the current ReSellution backend. Covers auth, profiles, categories, draft/active listings, favorites, chat, notifications, listing reports, and B19 admin moderation endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" },
+    { "key": "sellerToken", "value": "" },
+    { "key": "buyerToken", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "buyerUserId", "value": "" },
+    { "key": "sellerUserId", "value": "" },
+    { "key": "listingId", "value": "" },
+    { "key": "draftListingId", "value": "" },
+    { "key": "categoryId", "value": "" },
+    { "key": "conversationId", "value": "" },
+    { "key": "notificationId", "value": "" },
+    { "key": "reportId", "value": "" },
+    { "key": "mockRunId", "value": "" },
+    { "key": "mockPassword", "value": "Password123" },
+    { "key": "mockSellerEmail", "value": "" },
+    { "key": "mockBuyerEmail", "value": "" },
+    { "key": "mockAdminEmail", "value": "admin@example.com" }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Root",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/"
+          }
+        },
+        {
+          "name": "OpenAPI YAML",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/openapi.yaml"
+          }
+        },
+        {
+          "name": "Swagger Docs",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/docs"
+          }
+        },
+        {
+          "name": "Health",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          }
+        },
+        {
+          "name": "Metrics JSON",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/metrics"
+          }
+        },
+        {
+          "name": "Metrics Prometheus",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/metrics/prometheus"
+          }
+        },
+        {
+          "name": "Metrics Dashboard",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/metrics/dashboard"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mock Data Seeder",
+      "description": "Run this folder top-to-bottom against a local backend to create realistic test data. Admin moderation requests require an existing admin user because the backend intentionally does not expose a public make-admin endpoint.",
+      "item": [
+        {
+          "name": "Initialize Mock Variables",
+          "auth": { "type": "noauth" },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const id = Date.now().toString();",
+                  "pm.collectionVariables.set('mockRunId', id);",
+                  "pm.collectionVariables.set('mockPassword', 'Password123');",
+                  "pm.collectionVariables.set('mockSellerEmail', `seller.${id}@example.com`);",
+                  "pm.collectionVariables.set('mockBuyerEmail', `buyer.${id}@example.com`);",
+                  "pm.collectionVariables.set('mockAdminEmail', pm.collectionVariables.get('mockAdminEmail') || 'admin@example.com');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          }
+        },
+        {
+          "name": "Register Mock Seller",
+          "auth": { "type": "noauth" },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('sellerToken', json.token);",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "}",
+                  "if (json.user && json.user.id) pm.collectionVariables.set('sellerUserId', json.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Mock Seller {{mockRunId}}\",\n  \"email\": \"{{mockSellerEmail}}\",\n  \"password\": \"{{mockPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/register"
+          }
+        },
+        {
+          "name": "Register Mock Buyer",
+          "auth": { "type": "noauth" },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) pm.collectionVariables.set('buyerToken', json.token);",
+                  "if (json.user && json.user.id) pm.collectionVariables.set('buyerUserId', json.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Mock Buyer {{mockRunId}}\",\n  \"email\": \"{{mockBuyerEmail}}\",\n  \"password\": \"{{mockPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/register"
+          }
+        },
+        {
+          "name": "Seller Profile - Gainesville",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{sellerToken}}", "type": "string" }]
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Mock Seller {{mockRunId}}\",\n  \"city\": \"Gainesville\",\n  \"bio\": \"Friendly local seller with campus pickup.\",\n  \"photo_url\": \"https://images.unsplash.com/photo-1472099645785-5658abf4ff4e\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/users/me"
+          }
+        },
+        {
+          "name": "Buyer Profile - Gainesville",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{buyerToken}}", "type": "string" }]
+          },
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Mock Buyer {{mockRunId}}\",\n  \"city\": \"Gainesville\",\n  \"bio\": \"Looking for practical local deals.\",\n  \"photo_url\": \"https://images.unsplash.com/photo-1494790108377-be9c29b29330\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/users/me"
+          }
+        },
+        {
+          "name": "Create Mock Active Listing",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{sellerToken}}", "type": "string" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.listing && json.listing.id) pm.collectionVariables.set('listingId', json.listing.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Mock Campus Bike {{mockRunId}}\",\n  \"description\": \"A reliable test listing for feed, search, chat, favorites, reports, and sold flows.\",\n  \"condition\": \"good\",\n  \"price\": 120,\n  \"currency\": \"USD\",\n  \"city\": \"Gainesville\",\n  \"state\": \"FL\",\n  \"latitude\": 29.6516,\n  \"longitude\": -82.3248,\n  \"image_urls\": [\n    \"https://images.unsplash.com/photo-1485965120184-e220f721d03e\",\n    \"https://images.unsplash.com/photo-1502744688674-c619d1586c9e\"\n  ],\n  \"status\": \"active\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/listings"
+          }
+        },
+        {
+          "name": "Create Mock Draft Listing",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{sellerToken}}", "type": "string" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.listing && json.listing.id) pm.collectionVariables.set('draftListingId', json.listing.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Mock Draft Desk Lamp {{mockRunId}}\",\n  \"description\": \"A complete-but-hidden draft listing for the Drafts dashboard tab.\",\n  \"condition\": \"like_new\",\n  \"price\": 25,\n  \"currency\": \"USD\",\n  \"city\": \"Gainesville\",\n  \"state\": \"FL\",\n  \"image_urls\": [\n    \"https://images.unsplash.com/photo-1507473885765-e6ed057f782c\"\n  ],\n  \"status\": \"draft\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/listings"
+          }
+        },
+        {
+          "name": "Buyer Favorites Mock Listing",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{buyerToken}}", "type": "string" }]
+          },
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/v1/favorites/{{listingId}}"
+          }
+        },
+        {
+          "name": "Buyer Starts Conversation",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{buyerToken}}", "type": "string" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.conversation && json.conversation.id) pm.collectionVariables.set('conversationId', json.conversation.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{listingId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/chat/conversations"
+          }
+        },
+        {
+          "name": "Buyer Sends Message",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{buyerToken}}", "type": "string" }]
+          },
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Hi, can I pick this up near campus today?\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/chat/conversations/{{conversationId}}/messages"
+          }
+        },
+        {
+          "name": "Buyer Reports Mock Listing",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{buyerToken}}", "type": "string" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.report && json.report.id) pm.collectionVariables.set('reportId', json.report.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"suspicious_price\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/listings/{{listingId}}/report"
+          }
+        },
+        {
+          "name": "Admin Login for Moderation",
+          "auth": { "type": "noauth" },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) pm.collectionVariables.set('adminToken', json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{mockAdminEmail}}\",\n  \"password\": \"{{mockPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "auth": { "type": "noauth" },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) pm.collectionVariables.set('token', json.token);",
+                  "if (json.user && json.user.id) pm.collectionVariables.set('userId', json.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Demo User\",\n  \"email\": \"demo.user@example.com\",\n  \"password\": \"Password123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/register"
+          }
+        },
+        {
+          "name": "Login",
+          "auth": { "type": "noauth" },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) pm.collectionVariables.set('token', json.token);",
+                  "if (json.user && json.user.id) pm.collectionVariables.set('userId', json.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"demo.user@example.com\",\n  \"password\": \"Password123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "Login Seller",
+          "auth": { "type": "noauth" },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('sellerToken', json.token);",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "}",
+                  "if (json.user && json.user.id) pm.collectionVariables.set('sellerUserId', json.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"seller@example.com\",\n  \"password\": \"Password123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "Login Buyer",
+          "auth": { "type": "noauth" },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('buyerToken', json.token);",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "}",
+                  "if (json.user && json.user.id) pm.collectionVariables.set('buyerUserId', json.user.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"buyer@example.com\",\n  \"password\": \"Password123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "Login Admin",
+          "auth": { "type": "noauth" },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) pm.collectionVariables.set('adminToken', json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"Password123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/auth/me"
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Demo User Updated\",\n  \"city\": \"Gainesville\",\n  \"bio\": \"Local seller\",\n  \"photo_url\": \"https://example.com/avatar.jpg\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/users/me"
+          }
+        },
+        {
+          "name": "Update Profile PUT",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Demo User Updated\",\n  \"city\": \"Gainesville\",\n  \"bio\": \"Local seller\",\n  \"photo_url\": \"https://example.com/avatar.jpg\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/users/me"
+          }
+        },
+        {
+          "name": "Password Reset Request",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"demo.user@example.com\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/password/reset/request"
+          }
+        },
+        {
+          "name": "Password Reset Confirm",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"demo.user@example.com\",\n  \"otp\": \"123456\",\n  \"new_password\": \"NewPassword123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/password/reset/confirm"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/logout"
+          }
+        },
+        {
+          "name": "Deactivate Account",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/users/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "List Categories",
+          "auth": { "type": "noauth" },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = json.categories && json.categories[0];",
+                  "if (first && first.id) pm.collectionVariables.set('categoryId', first.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/categories"
+          }
+        },
+        {
+          "name": "Category Tree",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/categories/tree"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Listings",
+      "item": [
+        {
+          "name": "Browse Public Active Listings",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/listings/browse?city=Gainesville&page=1&limit=12"
+          }
+        },
+        {
+          "name": "Search Public Active Listings",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/listings/search?q=bike&city=Gainesville&sort=created_at_desc&page=1&limit=12"
+          }
+        },
+        {
+          "name": "Create Active Listing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.listing && json.listing.id) pm.collectionVariables.set('listingId', json.listing.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Campus Bike\",\n  \"description\": \"Lightly used bike, ready for local pickup.\",\n  \"condition\": \"good\",\n  \"price\": 120,\n  \"currency\": \"USD\",\n  \"city\": \"Gainesville\",\n  \"state\": \"FL\",\n  \"latitude\": 29.6516,\n  \"longitude\": -82.3248,\n  \"image_urls\": [\"https://example.com/bike.jpg\"],\n  \"status\": \"active\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/listings"
+          }
+        },
+        {
+          "name": "Create Draft Listing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.listing && json.listing.id) pm.collectionVariables.set('draftListingId', json.listing.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Draft Desk Lamp\",\n  \"description\": \"Complete listing saved as a hidden draft.\",\n  \"condition\": \"like_new\",\n  \"price\": 25,\n  \"currency\": \"USD\",\n  \"city\": \"Gainesville\",\n  \"state\": \"FL\",\n  \"image_urls\": [\"https://example.com/lamp.jpg\"],\n  \"status\": \"draft\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/listings"
+          }
+        },
+        {
+          "name": "My Listings - All",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/listings/me?status=all&page=1&limit=20"
+          }
+        },
+        {
+          "name": "My Listings - Draft",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/listings/me?status=draft&page=1&limit=20"
+          }
+        },
+        {
+          "name": "Update Listing",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Campus Bike - Updated\",\n  \"price\": 110,\n  \"city\": \"Gainesville\",\n  \"state\": \"FL\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/listings/{{listingId}}"
+          }
+        },
+        {
+          "name": "Publish Draft",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/listings/{{draftListingId}}/status"
+          }
+        },
+        {
+          "name": "Mark Listing Reserved",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"reserved\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/listings/{{listingId}}/status"
+          }
+        },
+        {
+          "name": "Mark Listing Sold",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"sold\",\n  \"sold_to_user_id\": \"{{buyerUserId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/listings/{{listingId}}/status"
+          }
+        },
+        {
+          "name": "Upload Image URL",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"image_url\": \"https://example.com/bike-side.jpg\",\n  \"position\": 1\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/listings/{{listingId}}/images"
+          }
+        },
+        {
+          "name": "Upload Image Multipart",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "position",
+                  "value": "0",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/listings/{{listingId}}/images"
+          }
+        },
+        {
+          "name": "Delete Listing",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/listings/{{listingId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Favorites",
+      "item": [
+        {
+          "name": "Add Favorite",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/v1/favorites/{{listingId}}"
+          }
+        },
+        {
+          "name": "Favorite Status",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/favorites/{{listingId}}"
+          }
+        },
+        {
+          "name": "List Favorites",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/favorites?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Remove Favorite",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/v1/favorites/{{listingId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Create or Get Conversation",
+          "auth": {
+            "type": "bearer",
+            "bearer": [{ "key": "token", "value": "{{buyerToken}}", "type": "string" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.conversation && json.conversation.id) pm.collectionVariables.set('conversationId', json.conversation.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{listingId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/chat/conversations"
+          }
+        },
+        {
+          "name": "List Conversations",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/chat/conversations?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Search Conversations",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/chat/conversations?q=bike&page=1&limit=20"
+          }
+        },
+        {
+          "name": "Get Conversation",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/chat/conversations/{{conversationId}}"
+          }
+        },
+        {
+          "name": "List Messages",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/chat/conversations/{{conversationId}}/messages?page=1&limit=50"
+          }
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Hi, is this still available?\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/chat/conversations/{{conversationId}}/messages"
+          }
+        },
+        {
+          "name": "Mark Conversation Read",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/v1/chat/conversations/{{conversationId}}/read"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List Notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = json.notifications && json.notifications[0];",
+                  "if (first && first.id) pm.collectionVariables.set('notificationId', first.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/notifications?page=1&limit=20"
+          }
+        },
+        {
+          "name": "List Unread Notifications",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/notifications?unread=true&page=1&limit=20"
+          }
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/v1/notifications/{{notificationId}}/read"
+          }
+        },
+        {
+          "name": "Mark All Notifications Read",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/v1/notifications/read-all"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Report Listing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.report && json.report.id) pm.collectionVariables.set('reportId', json.report.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"spam\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/listings/{{listingId}}/report"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Moderation",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{adminToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "List Reports",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = json.reports && json.reports[0];",
+                  "if (first && first.id) pm.collectionVariables.set('reportId', first.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/reports?status=open&page=1&limit=20"
+          }
+        },
+        {
+          "name": "Get Report",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/admin/reports/{{reportId}}"
+          }
+        },
+        {
+          "name": "Set Report In Review",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_review\",\n  \"resolution_note\": \"Review started.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/reports/{{reportId}}"
+          }
+        },
+        {
+          "name": "Add Moderation Action",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action_type\": \"note\",\n  \"payload\": {\n    \"note\": \"Checked listing and seller history.\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/reports/{{reportId}}/actions"
+          }
+        },
+        {
+          "name": "Resolve Report",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"resolved\",\n  \"resolution_note\": \"Resolved after moderation review.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/admin/reports/{{reportId}}"
+          }
+        }
+      ]
+    }
+  ]
+}
