@@ -200,11 +200,6 @@ export default function App() {
     }
   }, [viewMode, activeConversation])
 
-  useEffect(() => {
-    if (viewMode !== 'profile') return
-    void refreshSavedCount()
-  }, [viewMode, token, isAuthenticated])
-
   async function refreshSavedCount() {
     if (!isAuthenticated || !token) {
       setSavedCount(0)
@@ -217,6 +212,11 @@ export default function App() {
       setSavedCount(0)
     }
   }
+
+  useEffect(() => {
+    if (viewMode !== 'profile') return
+    void refreshSavedCount()
+  }, [viewMode, token, isAuthenticated])
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
