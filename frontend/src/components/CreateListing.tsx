@@ -18,6 +18,7 @@ import {
   deleteListing,
   getCategories,
   updateListing,
+  updateListingStatus,
   uploadListingImageFile
 } from '../api/listings'
 import { IconAddListing } from './Icons'
@@ -194,6 +195,7 @@ export default function CreateListing({
           city: draft.city.trim(),
           state: draft.state.trim() || undefined,
           category_id: draft.category_id || undefined,
+          status: 'draft',
           image_urls: []
         })
         setCreatedListingId(res.listing.id)
@@ -300,6 +302,8 @@ export default function CreateListing({
           state: draft.state.trim() || undefined,
           category_id: draft.category_id || undefined
         })
+      } else {
+        await updateListingStatus(token, createdListingId, { status: 'active' })
       }
       onSuccess()
     } catch (err: unknown) {
@@ -324,6 +328,21 @@ export default function CreateListing({
       }
     }
     onCancel()
+  }
+
+  const handleSaveDraft = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      if (!createdListingId) {
+        throw new Error('Listing was not created yet')
+      }
+      onSuccess()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save draft')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -569,9 +588,23 @@ export default function CreateListing({
               Next
             </button>
           ) : (
-            <button type="submit" className="profile-edit-btn primary" disabled={loading}>
-              {loading ? (isEditMode ? 'Saving...' : 'Publishing...') : isEditMode ? 'Save Changes' : 'Publish Listing'}
-            </button>
+            <>
+              {!isEditMode && (
+                <button
+                  type="button"
+                  className="profile-edit-btn secondary"
+                  onClick={() => {
+                    void handleSaveDraft()
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : 'Save Draft'}
+                </button>
+              )}
+              <button type="submit" className="profile-edit-btn primary" disabled={loading}>
+                {loading ? (isEditMode ? 'Saving...' : 'Publishing...') : isEditMode ? 'Save Changes' : 'Publish Listing'}
+              </button>
+            </>
           )}
         </div>
       </form>
