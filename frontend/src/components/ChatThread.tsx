@@ -17,6 +17,8 @@ export default function ChatThread({
 }: ChatThreadProps) {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState('')
+  const [failedText, setFailedText] = useState('')
 
   const messages = useMemo(
     () => [...conversation.messages].sort((a, b) => a.created_at.localeCompare(b.created_at)),
@@ -77,9 +79,14 @@ export default function ChatThread({
           const trimmed = draft.trim()
           if (!trimmed || sending) return
           setSending(true)
+          setSendError('')
           try {
             await onSendMessage(trimmed)
             setDraft('')
+            setFailedText('')
+          } catch (error: unknown) {
+            setFailedText(trimmed)
+            setSendError(error instanceof Error ? error.message : 'Failed to send message.')
           } finally {
             setSending(false)
           }
@@ -95,6 +102,32 @@ export default function ChatThread({
           {sending ? 'Sending...' : 'Send'}
         </button>
       </form>
+      {sendError && (
+        <div className="chat-thread-send-error">
+          <span>{sendError}</span>
+          <button
+            type="button"
+            className="profile-edit-btn secondary"
+            disabled={sending || !failedText}
+            onClick={async () => {
+              if (!failedText || sending) return
+              setSending(true)
+              setSendError('')
+              try {
+                await onSendMessage(failedText)
+                setDraft('')
+                setFailedText('')
+              } catch (error: unknown) {
+                setSendError(error instanceof Error ? error.message : 'Failed to send message.')
+              } finally {
+                setSending(false)
+              }
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
     </div>
   )
 }

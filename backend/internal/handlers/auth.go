@@ -68,6 +68,7 @@ type publicUser struct {
 	City     string `json:"city,omitempty"`
 	Bio      string `json:"bio,omitempty"`
 	PhotoURL string `json:"photo_url,omitempty"`
+	IsAdmin  bool   `json:"is_admin,omitempty"`
 }
 
 type updateProfileRequest struct {
@@ -589,6 +590,7 @@ func toPublicUser(user models.User) publicUser {
 		City:     user.City,
 		Bio:      user.Bio,
 		PhotoURL: user.ProfileImageURL,
+		IsAdmin:  user.IsAdmin,
 	}
 }
 

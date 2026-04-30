@@ -1736,6 +1736,91 @@ textarea:focus {
   margin-bottom: 1rem;
 }
 
+.my-listings-modal select,
+.my-listings-modal textarea {
+  border: 2px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font: inherit;
+}
+
+.my-listings-modal-hint {
+  margin: -0.35rem 0 1rem;
+  color: var(--gray-500);
+  font-size: 0.85rem;
+}
+
+.admin-moderation {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-moderation-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-report-list,
+.admin-action-log {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-report-row {
+  width: 100%;
+  border: 2px solid var(--gray-200);
+  background: white;
+  border-radius: 12px;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.25rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-report-row.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.admin-report-detail {
+  border: 2px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 1rem;
+  background: white;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-report-detail textarea {
+  width: 100%;
+  border: 2px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font: inherit;
+}
+
+.admin-action-log li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--gray-600);
+}
+
+.admin-empty {
+  color: var(--gray-500);
+}
+
+@media (min-width: 900px) {
+  .admin-moderation-layout {
+    grid-template-columns: minmax(260px, 0.8fr) minmax(360px, 1.2fr);
+    align-items: start;
+  }
+}
+
 /* Create Listing polish */
 .create-listing {
   max-width: 100%;
@@ -2908,6 +2993,15 @@ textarea:focus {
   padding: 0.75rem 1rem;
   font-size: 1rem;
   font-family: inherit;
+}
+
+.chat-thread-send-error {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  color: var(--danger);
+  font-size: 0.9rem;
 }
 
 @media (min-width: 760px) {

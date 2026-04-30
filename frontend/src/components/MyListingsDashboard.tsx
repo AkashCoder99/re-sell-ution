@@ -7,6 +7,8 @@ import { useState, useEffect, useCallback } from 'react'
 import type { Listing, ListingStatus } from '../types/listing'
 import { LISTING_STATUS_LABELS } from '../types/listing'
 import { getMyListings, updateListingStatus, deleteListing } from '../api/listings'
+import { listConversations } from '../api/chat'
+import type { ChatConversation } from '../types/chat'
 import { IconListings } from './Icons'
 
 type TabStatus = 'active' | 'sold' | 'draft'
@@ -35,6 +37,8 @@ export default function MyListingsDashboard({
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [markSoldListing, setMarkSoldListing] = useState<Listing | null>(null)
   const [soldToUserId, setSoldToUserId] = useState('')
+  const [buyerOptions, setBuyerOptions] = useState<ChatConversation[]>([])
+  const [buyersLoading, setBuyersLoading] = useState(false)
 
   const fetchListings = useCallback(
     async (status: TabStatus, pageNum: number) => {
@@ -81,6 +85,14 @@ export default function MyListingsDashboard({
   const handleMarkSoldClick = (listing: Listing) => {
     setMarkSoldListing(listing)
     setSoldToUserId('')
+    setBuyerOptions([])
+    setBuyersLoading(true)
+    listConversations(token, { limit: 25 })
+      .then((res) => {
+        setBuyerOptions(res.conversations.filter((conversation) => conversation.listing_id === listing.id))
+      })
+      .catch(() => setBuyerOptions([]))
+      .finally(() => setBuyersLoading(false))
   }
 
   const handleMarkSoldConfirm = async () => {
@@ -237,14 +249,25 @@ export default function MyListingsDashboard({
             <h3>Mark as sold</h3>
             <p className="my-listings-modal-title">{markSoldListing.title}</p>
             <label>
-              Buyer (optional) — select from chats or leave blank
-              <input
-                type="text"
-                placeholder="Buyer user ID (optional)"
+              Buyer (optional)
+              <select
                 value={soldToUserId}
                 onChange={(e) => setSoldToUserId(e.target.value)}
-              />
+                disabled={buyersLoading}
+              >
+                <option value="">
+                  {buyersLoading ? 'Loading buyers...' : 'No buyer selected'}
+                </option>
+                {buyerOptions.map((conversation) => (
+                  <option key={conversation.id} value={conversation.buyer_id}>
+                    {conversation.participant_name || conversation.buyer_id}
+                  </option>
+                ))}
+              </select>
             </label>
+            {!buyersLoading && buyerOptions.length === 0 && (
+              <p className="my-listings-modal-hint">No buyer chats found for this listing.</p>
+            )}
             <div className="button-group">
               <button
                 type="button"

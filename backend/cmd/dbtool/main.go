@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"resellution/backend/internal/db"
+	"resellution/backend/internal/models"
 )
 
 var migrationFiles = []string{
@@ -38,7 +39,7 @@ var seedFiles = []string{
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatal("usage: go run ./cmd/dbtool <migrate|seed|setup|verify-search-plans>")
+		log.Fatal("usage: go run ./cmd/dbtool <migrate|seed|setup|verify-search-plans|purge-expired-reports>")
 	}
 
 	loadDotEnv(".env")
@@ -67,6 +68,8 @@ func main() {
 		}
 	case "verify-search-plans":
 		err = verifySearchPlans(ctx, conn)
+	case "purge-expired-reports":
+		err = purgeExpiredReports(ctx, conn)
 	default:
 		err = fmt.Errorf("unknown command %q", os.Args[1])
 	}
@@ -74,6 +77,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func purgeExpiredReports(ctx context.Context, conn *sql.DB) error {
+	store := models.ReportStore{DB: conn}
+	count, err := store.PurgeExpired(ctx, "system")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("purged %d expired report(s)\n", count)
+	return nil
 }
 
 func runSQLFiles(ctx context.Context, conn *sql.DB, paths []string) error {

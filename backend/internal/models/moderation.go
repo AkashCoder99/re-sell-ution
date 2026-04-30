@@ -390,6 +390,26 @@ func (s ReportStore) ListActions(ctx context.Context, reportID string) ([]Modera
 	return actions, rows.Err()
 }
 
+func (s ReportStore) PurgeExpired(ctx context.Context, actorUserID string) (int64, error) {
+	res, err := s.DB.ExecContext(ctx, `
+		UPDATE reports
+		SET deleted_at = NOW(),
+		    updated_at = NOW()
+		WHERE purge_after IS NOT NULL
+		  AND purge_after <= NOW()
+		  AND is_legal_hold = FALSE
+		  AND deleted_at IS NULL
+	`)
+	if err != nil {
+		return 0, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
 func (s ReportStore) transitionWithAction(ctx context.Context, reportID, actorUserID, newStatus, resolutionNote, assignedAdminID, actionType string, payload map[string]any) (Report, error) {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {

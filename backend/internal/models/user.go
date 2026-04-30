@@ -80,7 +80,7 @@ func (s UserStore) IsAdminByID(ctx context.Context, id string) (bool, error) {
 
 func (s UserStore) FindByEmail(ctx context.Context, email string) (User, error) {
 	query := `
-		SELECT id, email, password_hash, full_name, city, bio, profile_image_url, created_at, updated_at
+		SELECT id, email, password_hash, full_name, city, bio, profile_image_url, is_admin, created_at, updated_at
 		FROM users
 		WHERE email = $1
 		  AND deleted_at IS NULL
@@ -96,6 +96,7 @@ func (s UserStore) FindByEmail(ctx context.Context, email string) (User, error) 
 		&city,
 		&bio,
 		&profileImageURL,
+		&user.IsAdmin,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -114,7 +115,7 @@ func (s UserStore) FindByEmail(ctx context.Context, email string) (User, error) 
 
 func (s UserStore) FindByID(ctx context.Context, id string) (User, error) {
 	query := `
-		SELECT id, email, password_hash, full_name, city, bio, profile_image_url, created_at, updated_at
+		SELECT id, email, password_hash, full_name, city, bio, profile_image_url, is_admin, created_at, updated_at
 		FROM users
 		WHERE id = $1
 		  AND deleted_at IS NULL
@@ -130,6 +131,7 @@ func (s UserStore) FindByID(ctx context.Context, id string) (User, error) {
 		&city,
 		&bio,
 		&profileImageURL,
+		&user.IsAdmin,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)

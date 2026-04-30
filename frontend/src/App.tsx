@@ -24,6 +24,7 @@ import BrowseListings from './components/BrowseListings'
 import ChatThread from './components/ChatThread'
 import ConversationInbox from './components/ConversationInbox'
 import FavoritesPage from './components/FavoritesPage'
+import AdminModeration from './components/AdminModeration'
 import {
   IconEmail,
   IconLocation,
@@ -69,6 +70,7 @@ type ViewMode =
   | 'browse'
   | 'chat'
   | 'favorites'
+  | 'admin-moderation'
 
 export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('login')
@@ -99,7 +101,8 @@ export default function App() {
       viewMode === 'inbox' ||
       viewMode === 'browse' ||
       viewMode === 'chat' ||
-      viewMode === 'favorites')
+      viewMode === 'favorites' ||
+      viewMode === 'admin-moderation')
 
   async function handleStartChat(listing: Listing) {
     if (!isAuthenticated || !user) {
@@ -393,6 +396,8 @@ export default function App() {
           />
         ) : isAuthenticated && viewMode === 'favorites' && user ? (
           <FavoritesPage token={token} onBack={() => setViewMode('profile')} onFavoritesChanged={refreshSavedCount} />
+        ) : isAuthenticated && viewMode === 'admin-moderation' && user?.is_admin ? (
+          <AdminModeration token={token} onBack={() => setViewMode('profile')} />
         ) : isAuthenticated && viewMode === 'chat' && user && activeConversation ? (
           <ChatThread
             conversation={activeConversation}
@@ -567,6 +572,12 @@ export default function App() {
               <div className="role-section">
                 <div className="role-title">Account</div>
                 <div className="profile-actions">
+                  {user.is_admin && (
+                    <button type="button" className="profile-action-btn primary" onClick={() => setViewMode('admin-moderation')}>
+                      <IconListings className="profile-action-icon" aria-hidden />
+                      <span>Moderation</span>
+                    </button>
+                  )}
                   <button type="button" className="profile-action-btn" onClick={() => setViewMode('profile-edit')}>
                     <IconEdit className="profile-action-icon" aria-hidden />
                     <span>Edit Profile</span>

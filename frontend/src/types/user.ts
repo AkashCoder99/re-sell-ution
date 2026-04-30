@@ -5,6 +5,7 @@ export interface PublicUser {
   city?: string
   bio?: string
   photo_url?: string
+  is_admin?: boolean
 }
 
 export interface UpdateProfileRequest {
