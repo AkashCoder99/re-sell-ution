@@ -145,6 +145,67 @@ Implemented:
 
 ---
 
+### Backend Status
+
+### B13 (P1) — Listing moderation flags (basic)
+
+**Status:** Completed
+
+**Depends on:** B7 (listings CRUD) — satisfied by existing listing create/update APIs.
+
+**Implemented**
+
+- **Validation rules (price bounds, required fields):** `ListingHandler` uses `validateListingCreate` / `validateListingPatch` for title/description length, allowed condition and create-status values, **price** between **0** and **999999999.99**, 3-letter currency (defaults `INR`), required **city**, optional state/coordinates bounds, optional category UUID validation against taxonomy.
+- **Basic prohibited words filter (config-driven):** `LISTING_PROHIBITED_WORDS` (comma-separated, case-insensitive) loaded in config and applied to listing **create** and **patch** when title/description would contain a blocked term.
+- **Rate limits for listing creation/edits:** IP-based limiter on `POST /api/v1/listings` and `PATCH /api/v1/listings/{id}` via `LISTING_WRITE_RATE_LIMIT_PER_IP` and `LISTING_WRITE_RATE_LIMIT_WINDOW_MINUTES`.
+
+**Workflow**
+
+1. Seller submits or edits a listing; handler runs schema validation first.
+2. If configured prohibited terms appear in title/description, API returns **400** with a clear error.
+3. If the client exceeds listing-write rate limits for its IP, API returns **429** with a retry message.
+
+---
+
+### B19 (P1) — Reporting & moderation workflow
+
+**Status:** Completed
+
+**Depends on:** B20 (schema + audit tables), B3 (listing details/report entry from product side).
+
+**Implemented**
+
+- **Create report endpoint:** `POST /api/v1/listings/{id}/report` (authenticated) creates or returns an existing row in the unified **`reports`** table (`ReportStore.CreateListingReport`), with dedupe by reporter + listing; blocks self-reports.
+- **Status lifecycle (`open` / `in_review` / `resolved` / `rejected`):** Status stored on `reports`; transitions enforced in the model layer and updated via admin APIs; `resolved_at` / resolution note populated when closing.
+- **Admin-only endpoints (resolve, action log):** Admin gate uses **`users.is_admin`** (`UserStore.IsAdminByID`; column added in **`0015_admin_users.sql`**). Routes: **`GET /api/v1/admin/reports`** (filter `status`, pagination), **`GET /api/v1/admin/reports/{id}`**, **`PATCH /api/v1/admin/reports/{id}`** (body `status`, `resolution_note`) for moderation decisions, **`POST /api/v1/admin/reports/{id}/actions`** (body `action_type`, `payload`) for audit entries including notes and other allowed action types.
+
+**Workflow**
+
+1. Buyer reports a listing from the client; API returns **201** with the persisted **`report`** payload.
+2. Moderator with `is_admin` lists or opens a report, updates status or resolution note, or posts an audit action.
+3. Actions and status changes are persisted for compliance review (`moderation_actions` and updated `reports` row).
+
+---
+
+### B20 [DB] (P1) — Moderation + compliance data
+
+**Status:** Completed
+
+**Depends on:** B3 (domain targets exist: listings, users, messages).
+
+**Implemented**
+
+- **`reports` table linking listing/user/message:** Migration **`0013_moderation_core.sql`** defines `reports` with `target_type` check (`listing` | `user` | `message`), exactly one target FK, status/priority/assignment/resolution columns, and queue indexes.
+- **`moderation_actions` / audit table:** Same migration creates **`moderation_actions`** with `action_type` checks and JSON **`action_payload`**, indexed by report and actor/time.
+- **Retention policy fields / timestamps:** Migration **`0014_moderation_integrity_retention_backfill.sql`** adds **`retain_until`**, **`purge_after`**, **`is_legal_hold`**, **`legal_hold_reason`**, **`deleted_at`** with temporal/legal-hold constraints; partial unique indexes per reporter+target; legacy **`listing_reports`** backfill into **`reports`** where applicable; convenience view **`v_listing_reports_from_reports`**.
+
+**Workflow**
+
+1. Application migrations (`dbtool migrate`) create moderation schema and extend it for retention.
+2. Reporting and admin APIs read/write **`reports`** and **`moderation_actions`** as the system of record for moderation and audit.
+
+---
+
 ## Frontend Unit and Cypress Tests
 
 ### Frontend Unit Tests (Vitest)
@@ -182,14 +243,21 @@ Implemented:
 - backend/internal/config/config_test.go
 - backend/internal/handlers/auth_http_test.go
 - backend/internal/handlers/auth_validation_test.go
+- backend/internal/handlers/categories_http_test.go
+- backend/internal/handlers/conversations_http_test.go
 - backend/internal/handlers/favorites_http_test.go
 - backend/internal/handlers/listings_http_test.go
 - backend/internal/handlers/listings_mine_http_test.go
 - backend/internal/handlers/listings_validation_test.go
+- backend/internal/handlers/listing_reports_http_test.go
+- backend/internal/handlers/notifications_http_test.go
 - backend/internal/handlers/search_test.go
 - backend/internal/middleware/auth_test.go
 - backend/internal/models/category_test.go
+- backend/internal/models/conversation_helpers_test.go
 - backend/internal/models/listing_search_test.go
+- backend/internal/models/moderation_test.go
+- backend/internal/models/notification_test.go
 - backend/internal/observability/middleware_test.go
 - backend/internal/ratelimit/ratelimit_test.go
 - backend/internal/utils/password_test.go
@@ -203,45 +271,68 @@ Authoritative source:
 - backend/openapi/openapi.yaml
 
 Runtime docs endpoints:
-- GET /docs
-- GET /openapi.yaml
+- GET /docs — Interactive OpenAPI explorer in the browser
+- GET /openapi.yaml — Download OpenAPI spec as YAML file
 
 ### System
-- GET /
-- GET /health
-- GET /metrics
-- GET /metrics/prometheus
-- GET /metrics/dashboard
+- GET / — JSON service banner and link shortcuts
+- GET /health — Liveness probe for uptime checks
+- GET /metrics — JSON snapshot of app counters and gauges
+- GET /metrics/prometheus — Prometheus text-format scrape endpoint
+- GET /metrics/dashboard — HTML page with live metric charts
+- GET /uploads/… — Serves stored listing images by file path
 
 ### Auth and Users
-- POST /api/v1/auth/register
-- POST /api/v1/auth/login
-- POST /api/v1/auth/logout
-- POST /api/v1/auth/password/reset/request
-- POST /api/v1/auth/password/reset/confirm
-- GET /api/v1/auth/me
-- PATCH /api/v1/users/me
-- PUT /api/v1/users/me
-- DELETE /api/v1/users/me
+- POST /api/v1/auth/register — Create account; returns JWT and user
+- POST /api/v1/auth/login — Authenticate email/password; returns JWT
+- POST /api/v1/auth/logout — Acknowledge logout; JWT discarded client-side
+- POST /api/v1/auth/password/reset/request — Send or log OTP for reset
+- POST /api/v1/auth/password/reset/confirm — Verify OTP; set new password
+- GET /api/v1/auth/me — Return current user from Bearer token
+- PATCH /api/v1/users/me — Partial update of profile fields
+- PUT /api/v1/users/me — Full profile replace via same handler
+- DELETE /api/v1/users/me — Soft-deactivate the logged-in account
 
 ### Categories
-- GET /api/v1/categories
-- GET /api/v1/categories/tree
+- GET /api/v1/categories — Flat list of marketplace categories
+- GET /api/v1/categories/tree — Categories nested by parent and child
 
 ### Listings
-- GET /api/v1/listings/browse
-- GET /api/v1/listings/search
-- POST /api/v1/listings
-- GET /api/v1/listings/me
-- PATCH /api/v1/listings/{id}
-- PATCH /api/v1/listings/{id}/status
-- DELETE /api/v1/listings/{id}
-- POST /api/v1/listings/{id}/images
+- GET /api/v1/listings/browse — Paginated active listings by city or filters
+- GET /api/v1/listings/search — Full-text search with filters and sort
+- POST /api/v1/listings — Create listing; optional draft or active
+- GET /api/v1/listings/me — Seller’s listings with status pagination
+- PATCH /api/v1/listings/{id} — Edit fields on owned listing
+- PATCH /api/v1/listings/{id}/status — Set active, sold, draft, etc.
+- DELETE /api/v1/listings/{id} — Soft-delete listing owned by seller
+- POST /api/v1/listings/{id}/images — Multipart or JSON image attach
+- POST /api/v1/listings/{id}/report — File moderation report for listing
+
+### Moderation (admin; requires `users.is_admin`)
+
+- GET /api/v1/admin/reports — Paginated queue; optional status filter
+- GET /api/v1/admin/reports/{id} — Load one report including targets
+- PATCH /api/v1/admin/reports/{id} — Change status and resolution note
+- POST /api/v1/admin/reports/{id}/actions — Record audit action or note
 
 ### Favorites
-- GET /api/v1/favorites
-- PUT /api/v1/favorites/{listing_id}
-- DELETE /api/v1/favorites/{listing_id}
+- GET /api/v1/favorites — List saved listings with pagination
+- GET /api/v1/favorites/{listing_id} — Whether current user favorited listing
+- PUT /api/v1/favorites/{listing_id} — Save listing to favorites
+- DELETE /api/v1/favorites/{listing_id} — Remove listing from favorites
+
+### Chat
+- GET /api/v1/chat/conversations — Paginated inbox of buyer-seller threads
+- POST /api/v1/chat/conversations — Open or reuse conversation for listing
+- GET /api/v1/chat/conversations/{id} — Conversation detail and listing link
+- GET /api/v1/chat/conversations/{id}/messages — Paginated message history
+- POST /api/v1/chat/conversations/{id}/messages — Send message in thread
+- PATCH /api/v1/chat/conversations/{id}/read — Mark messages read up to time
+
+### Notifications
+- GET /api/v1/notifications — List notifications for current user
+- PATCH /api/v1/notifications/{id}/read — Mark single notification read
+- PATCH /api/v1/notifications/read-all — Mark every notification read
 
 ---
 
