@@ -169,6 +169,10 @@ Implemented:
 - Listing details + chat CTA coverage
 - Search/listing test stabilization for localStorage/runtime variations
 - Cypress chat/inbox user journey in preview/mock mode
+- Saved/Favorites flow coverage updates (saved list rendering, remove action behavior, view-details modal trigger path)
+- Create listing flow test fix for async multi-step transitions (details -> photos -> review -> publish)
+- Photo upload UI assertion update to match preview-first behavior (Upload 1 image render)
+- Regression check after polish wiring (live saved-count refresh callback from favorite/unfavorite actions)
 
 ---
 
