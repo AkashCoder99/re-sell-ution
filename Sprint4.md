@@ -267,9 +267,6 @@ Implemented:
 
 ## Updated Backend API Documentation Summary
 
-Authoritative source:
-- backend/openapi/openapi.yaml
-
 Runtime docs endpoints:
 - GET /docs — Interactive OpenAPI explorer in the browser
 - GET /openapi.yaml — Download OpenAPI spec as YAML file

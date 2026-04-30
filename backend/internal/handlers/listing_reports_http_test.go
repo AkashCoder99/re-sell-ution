@@ -186,6 +186,62 @@ func TestListingReportHandlerUpdateStatusAdmin(t *testing.T) {
 	}
 }
 
+func TestListingReportHandlerGetAdminOK(t *testing.T) {
+	const secret = "listing-report-http-test-secret-8"
+	tm := utils.NewTokenManager(secret)
+	h := ListingReportHandler{
+		Reports: stubListingReportStore{},
+		Admins:  stubAdminChecker{isAdmin: true},
+	}
+	wrapped := middleware.Auth(tm, h.GetAdmin)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/reports/123e4567-e89b-12d3-a456-426614174000", nil)
+	req.SetPathValue("id", "123e4567-e89b-12d3-a456-426614174000")
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t, secret, "38383838-3838-3838-3838-383838383838"))
+	wrapped(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+}
+
+func TestListingReportHandlerListAdminOK(t *testing.T) {
+	const secret = "listing-report-http-test-secret-9"
+	tm := utils.NewTokenManager(secret)
+	h := ListingReportHandler{
+		Reports: stubListingReportStore{},
+		Admins:  stubAdminChecker{isAdmin: true},
+	}
+	wrapped := middleware.Auth(tm, h.ListAdmin)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/reports?status=open&page=1&limit=10", nil)
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t, secret, "39393939-3939-3939-3939-393939393939"))
+	wrapped(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+}
+
+func TestListingReportHandlerAddActionAdminOK(t *testing.T) {
+	const secret = "listing-report-http-test-secret-10"
+	tm := utils.NewTokenManager(secret)
+	h := ListingReportHandler{
+		Reports: stubListingReportStore{},
+		Admins:  stubAdminChecker{isAdmin: true},
+	}
+	wrapped := middleware.Auth(tm, h.AddActionAdmin)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/reports/123e4567-e89b-12d3-a456-426614174000/actions", strings.NewReader(`{"action_type":"note","payload":{"text":"reviewed"}}`))
+	req.SetPathValue("id", "123e4567-e89b-12d3-a456-426614174000")
+	req.Header.Set("Authorization", "Bearer "+bearerToken(t, secret, "3a3a3a3a-3a3a-3a3a-3a3a-3a3a3a3a3a3a"))
+	wrapped(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", rec.Code)
+	}
+}
+
 func TestListingReportHandlerAddActionAdminInvalidAction(t *testing.T) {
 	const secret = "listing-report-http-test-secret-7"
 	tm := utils.NewTokenManager(secret)
