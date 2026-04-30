@@ -11,51 +11,126 @@ This report documents Sprint 4 progress for:
 
 ### 1) Remaining Sprint 3 / Newly Discovered Work
 
-#### F15 — Start Chat from Listing
-Status: Completed
+### Frontend Status
 
-Implemented:
+### F18 (P1) - Favorites / Saved items
+
+**Status:** Completed (UI + integration polish)
+
+**Implemented**
+
+- **Saved page entry + listing cards:** Added `Saved` navigation in profile and a dedicated saved listings page with image/title/price/city cards.
+- **Saved count badge:** Profile action now shows live saved count (`Saved (N)`), refreshed from favorites API.
+- **View details from Saved:** Added `View details` button that opens `ListingDetails` modal directly from saved cards.
+- **Immediate badge refresh after favorite changes:** Favorites badge now updates immediately after favorite/unfavorite from search and after remove from saved page.
+
+**Workflow**
+
+1. User favorites/unfavorites a listing from listing details in search.
+2. App refreshes saved count immediately (no need to revisit profile later).
+3. User opens Saved page, sees cards, can open full details or remove an item.
+
+---
+
+### F12 (P0) - Create listing (safety polish)
+
+**Status:** Completed (unsaved-changes protection)
+
+**Implemented**
+
+- **Unsaved changes confirm on cancel/navigation:** Added confirmation dialog when leaving create listing flow with unsaved edits.
+- **Browser refresh/close warning:** Added `beforeunload` guard so in-progress listing work is not accidentally lost.
+- **Preserved cleanup behavior:** New-listing temporary records are still best-effort cleaned on cancel; edit mode does not delete existing listing.
+
+**Workflow**
+
+1. User starts create listing and makes edits.
+2. On cancel/leave, user is prompted to confirm discard.
+3. On tab refresh/close, browser warns about unsaved changes.
+
+
+---
+
+### F14 (P0) - My listings dashboard (Edit action wiring)
+
+**Status:** Completed
+
+**Implemented**
+
+- **Edit action wired from dashboard:** `My Listings -> Edit` now opens `CreateListing` with selected listing context.
+- **True edit mode in CreateListing:** Form prefilled with listing data; existing images are shown; submit updates the same listing (PATCH) instead of creating a new one.
+- **Post-save flow:** Returns to `My Listings` and refreshes list with success messaging.
+
+**Workflow**
+
+1. Seller opens `My Listings` and clicks `Edit` on an active listing.
+2. Edit form opens with existing values and media.
+3. Seller saves changes and returns to refreshed dashboard state.
+
+
+---
+
+#### F15 — Start Chat from Listing
+
+**Status:** Completed
+
+**Implemented**
+
 - chat entry from listing details
 - chat entry wiring from browse/search paths
 - conversation open/send flows integrated in app state
 
-Files:
-- frontend/src/App.tsx
-- frontend/src/components/ListingDetails.tsx
-- frontend/src/components/BrowseListings.tsx
-- frontend/src/components/SearchListings.tsx
-- frontend/src/components/ChatThread.tsx
-- frontend/src/types/chat.ts
-- frontend/src/api/chat.ts
+**Workflow**
+
+1. User opens a listing from Browse or Search and taps Chat with Seller on listing details.
+2. App checks authentication; if user is not logged in, it shows a message and redirects to login.
+3. If logged in, app calls conversation create/open flow with buyer, seller, and listing context.
+4. Existing conversation is reused for the same buyer-seller-listing combination; otherwise a new one is created.
+5. App sets active conversation in state and navigates user to the chat thread screen.
+
+---
 
 #### F16 — Inbox / Conversation List UX
-Status: Completed
 
-Implemented:
+**Status:** Completed
+
+**Implemented**
 - inbox page with conversation list
 - unread count badges
 - conversation search input
 - pagination controls
 - open-thread from inbox
 
-Files:
-- frontend/src/components/ConversationInbox.tsx
-- frontend/src/api/chat.ts
-- frontend/src/styles.css
-- frontend/src/App.tsx
+**Workflow**
+
+1. User opens Inbox from profile buyer actions.
+2. App fetches paginated conversation list and renders participant, listing title, preview, updated time, and unread count.
+3. User can type in search input to filter conversation list by listing/user/message text.
+4. User can move between pages with Previous/Next controls.
+5. On selecting a conversation, app opens that thread and marks messages as read.
+
+---
 
 #### F11 / Listings Integration Follow-up
-Status: Completed
 
-Implemented:
+**Status:** Completed
+
+**Implemented**
 - listing details CTA wiring stabilization
 - browse-to-chat flow update
 - integration cleanup and validation
 
-Files:
-- frontend/src/components/ListingDetails.tsx
-- frontend/src/components/BrowseListings.tsx
-- frontend/src/App.tsx
+**Workflow**
+
+1. User opens listing details from Search or Browse cards.
+2. Listing details screen consistently renders CTA actions (chat/favorite/report) and listing metadata.
+3. Chat CTA from details triggers shared app chat-start handler to keep behavior identical across entry points.
+4. Browse-to-chat and Search-to-chat both route to the same thread state/navigation logic.
+5. Integration cleanup ensures stable transitions between listing modal, profile, inbox, and chat screens.
+
+
+---
+
 
 #### Backend Follow-up: Favorites + Search Enhancements
 Status: Completed
@@ -66,17 +141,7 @@ Implemented:
 - search filters/sort support extended
 - chat model indexing migration for inbox query performance
 
-Files:
-- backend/internal/models/favorite.go
-- backend/internal/handlers/favorites.go
-- backend/internal/handlers/favorites_http_test.go
-- backend/internal/handlers/search.go
-- backend/internal/handlers/search_test.go
-- backend/internal/models/listing_search.go
-- backend/internal/models/listing_search_test.go
-- backend/migrations/0011_chat_model_indexes.sql
-- backend/cmd/server/main.go
-- backend/cmd/dbtool/main.go
+
 
 ---
 
@@ -207,10 +272,3 @@ go test ./...
 ```
 
 ---
-
-## Sprint 4 Notes
-
-- Sprint 4 closes key Sprint 3 carryover around chat entry/inbox and browse integration.
-- Test coverage was expanded for both unit and e2e paths.
-- Front-page README was updated with practical setup, usage, and test commands.
-- Team members should continue committing work incrementally for contribution tracking.
