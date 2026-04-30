@@ -35,7 +35,7 @@ func main() {
 	favoriteStore := models.FavoriteStore{DB: database}
 	conversationStore := models.ConversationStore{DB: database}
 	notificationStore := models.NotificationStore{DB: database}
-	listingReportStore := models.ListingReportStore{DB: database}
+	reportStore := models.ReportStore{DB: database}
 	tokenManager := utils.NewTokenManager(cfg.TokenSecret)
 	var emailSender utils.EmailSender
 	if strings.TrimSpace(cfg.SMTPHost) != "" {
@@ -52,14 +52,14 @@ func main() {
 	}
 
 	listingHandler := handlers.ListingHandler{
-		Listings:         listingStore,
+		Listings:        listingStore,
 		ProhibitedWords: cfg.ListingProhibitedWords,
 	}
 	categoryHandler := handlers.CategoryHandler{Categories: categoryStore}
 	favoriteHandler := handlers.FavoriteHandler{Favorites: favoriteStore}
 	conversationHandler := handlers.ConversationHandler{Conversations: conversationStore, EmailSender: emailSender}
 	notificationHandler := handlers.NotificationHandler{Notifications: notificationStore}
-	listingReportHandler := handlers.ListingReportHandler{Reports: listingReportStore}
+	listingReportHandler := handlers.ListingReportHandler{Reports: reportStore, Admins: userStore}
 
 	authHandler := handlers.AuthHandler{
 		Users:                        userStore,
@@ -166,6 +166,10 @@ func main() {
 	mux.HandleFunc("DELETE /api/v1/listings/{id}", middleware.Auth(tokenManager, listingHandler.Delete))
 	mux.HandleFunc("POST /api/v1/listings/{id}/images", middleware.Auth(tokenManager, listingHandler.UploadImage))
 	mux.HandleFunc("POST /api/v1/listings/{id}/report", middleware.Auth(tokenManager, listingReportHandler.Create))
+	mux.HandleFunc("GET /api/v1/admin/reports", middleware.Auth(tokenManager, listingReportHandler.ListAdmin))
+	mux.HandleFunc("GET /api/v1/admin/reports/{id}", middleware.Auth(tokenManager, listingReportHandler.GetAdmin))
+	mux.HandleFunc("PATCH /api/v1/admin/reports/{id}", middleware.Auth(tokenManager, listingReportHandler.UpdateStatusAdmin))
+	mux.HandleFunc("POST /api/v1/admin/reports/{id}/actions", middleware.Auth(tokenManager, listingReportHandler.AddActionAdmin))
 	mux.HandleFunc("GET /api/v1/favorites", middleware.Auth(tokenManager, favoriteHandler.List))
 	mux.HandleFunc("GET /api/v1/favorites/{listing_id}", middleware.Auth(tokenManager, favoriteHandler.Status))
 	mux.HandleFunc("PUT /api/v1/favorites/{listing_id}", middleware.Auth(tokenManager, favoriteHandler.Add))

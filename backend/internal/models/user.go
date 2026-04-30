@@ -13,15 +13,16 @@ var ErrPasswordResetTokenInvalid = errors.New("password reset token is invalid o
 var ErrPasswordResetOTPInvalid = errors.New("password reset otp is invalid or expired")
 
 type User struct {
-	ID               string    `json:"id"`
-	Email            string    `json:"email"`
-	PasswordHash     string    `json:"-"`
-	FullName         string    `json:"full_name"`
-	City             string    `json:"city,omitempty"`
-	Bio              string    `json:"bio,omitempty"`
-	ProfileImageURL  string    `json:"profile_image_url,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID              string    `json:"id"`
+	Email           string    `json:"email"`
+	PasswordHash    string    `json:"-"`
+	FullName        string    `json:"full_name"`
+	City            string    `json:"city,omitempty"`
+	Bio             string    `json:"bio,omitempty"`
+	ProfileImageURL string    `json:"profile_image_url,omitempty"`
+	IsAdmin         bool      `json:"is_admin,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type UserStore struct {
@@ -58,6 +59,23 @@ func (s UserStore) Create(ctx context.Context, user User) (User, error) {
 
 	user.Email = strings.ToLower(user.Email)
 	return user, nil
+}
+
+func (s UserStore) IsAdminByID(ctx context.Context, id string) (bool, error) {
+	var isAdmin bool
+	err := s.DB.QueryRowContext(ctx, `
+		SELECT is_admin
+		FROM users
+		WHERE id = $1
+		  AND deleted_at IS NULL
+	`, id).Scan(&isAdmin)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrUserNotFound
+		}
+		return false, err
+	}
+	return isAdmin, nil
 }
 
 func (s UserStore) FindByEmail(ctx context.Context, email string) (User, error) {

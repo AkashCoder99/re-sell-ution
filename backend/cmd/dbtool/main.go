@@ -29,6 +29,7 @@ var migrationFiles = []string{
 	"migrations/0013_moderation_core.sql",
 	"migrations/0014_moderation_integrity_retention_backfill.sql",
 	"migrations/0013_listing_draft_status.sql",
+	"migrations/0015_admin_users.sql",
 }
 
 var seedFiles = []string{

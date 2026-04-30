@@ -16,6 +16,7 @@ tags:
   - name: Favorites
   - name: Chat
   - name: Notifications
+  - name: AdminModeration
 
 components:
   securitySchemes:
@@ -218,6 +219,84 @@ components:
         reason:
           type: string
           maxLength: 500
+
+    Report:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        reporter_user_id: { type: string, format: uuid }
+        target_type:
+          type: string
+          enum: [listing, user, message]
+        target_listing_id: { type: string, format: uuid, nullable: true }
+        target_user_id: { type: string, format: uuid, nullable: true }
+        target_message_id: { type: string, format: uuid, nullable: true }
+        reason_code: { type: string, nullable: true }
+        reason_text: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [open, in_review, resolved, rejected]
+        priority: { type: integer }
+        assigned_admin_id: { type: string, format: uuid, nullable: true }
+        resolution_note: { type: string, nullable: true }
+        resolved_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        moderation_actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModerationAction'
+      required: [id, reporter_user_id, target_type, status, priority, created_at, updated_at]
+
+    ReportsResponse:
+      type: object
+      properties:
+        reports:
+          type: array
+          items:
+            $ref: '#/components/schemas/Report'
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        total_pages: { type: integer }
+      required: [reports, total, page, limit, total_pages]
+
+    UpdateReportStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [open, in_review, resolved, rejected]
+        resolution_note:
+          type: string
+          maxLength: 1000
+      required: [status]
+
+    ModerationAction:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        report_id: { type: string, format: uuid }
+        actor_user_id: { type: string, format: uuid }
+        action_type:
+          type: string
+          enum: [assign, note, hide_listing, warn_user, ban_user, close_report]
+        action_payload:
+          type: object
+          additionalProperties: true
+        created_at: { type: string, format: date-time }
+      required: [id, report_id, actor_user_id, action_type, action_payload, created_at]
+
+    CreateModerationActionRequest:
+      type: object
+      properties:
+        action_type:
+          type: string
+          enum: [assign, note, hide_listing, warn_user, ban_user, close_report]
+        payload:
+          type: object
+          additionalProperties: true
+      required: [action_type]
 
     UpdateStatusRequest:
       type: object
@@ -689,6 +768,143 @@ paths:
           description: Unauthorized
         '404':
           description: Listing not found
+
+  /api/v1/admin/reports:
+    get:
+      tags: [AdminModeration]
+      summary: List moderation reports
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [open, in_review, resolved, rejected, all]
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Reports page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportsResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Admin access required
+
+  /api/v1/admin/reports/{id}:
+    get:
+      tags: [AdminModeration]
+      summary: Get a moderation report
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Report detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Admin access required
+        '404':
+          description: Report not found
+    patch:
+      tags: [AdminModeration]
+      summary: Update a report status
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateReportStatusRequest'
+      responses:
+        '200':
+          description: Report updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report:
+                    $ref: '#/components/schemas/Report'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Admin access required
+        '404':
+          description: Report not found
+
+  /api/v1/admin/reports/{id}/actions:
+    post:
+      tags: [AdminModeration]
+      summary: Add a moderation action log entry
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateModerationActionRequest'
+      responses:
+        '201':
+          description: Action logged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  action:
+                    $ref: '#/components/schemas/ModerationAction'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Admin access required
+        '404':
+          description: Report not found
 
   /api/v1/favorites:
     get:
